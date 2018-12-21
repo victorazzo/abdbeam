@@ -560,16 +560,15 @@ class Section:
             if pt.EA > 0:
                 o_pt_Px = (pt.EA*(o_s_c_strs[0] + o_s_c_strs[1]
                           *(pt.z-self.zc) + o_s_c_strs[2]*(pt.y-self.yc)))
-                #o_pt_ex = o_pt_Px/pt.EA * 1000000.0
-            if pt.GJ > 0:
-                o_pt_Tx  = pt.GJ * o_s_c_strs[3]
                 pt_Nxy_contribution[pt_id] = (-(self.p_c[2,2]*Vz_s
                               - self.p_c[1,2]*Vy_s)*pt.EA*(pt.z-self.zc)
                               - (self.p_c[1,1]*Vy_s - self.p_c[1,2]*Vz_s)
                               * pt.EA*(pt.y-self.yc))
-                pt_Nxy_contribution[pt_id] /= shear_const
+                pt_Nxy_contribution[pt_id] /= shear_const                
+                #o_pt_ex = o_pt_Px/pt.EA * 1000000.0
+            if pt.GJ > 0:
+                o_pt_Tx  = pt.GJ * o_s_c_strs[3]
                 #o_pt_v = o_pt_Tx / pt.GJ
-
             u_pts.loc[pt_id, 'Px'] = o_pt_Px
             u_pts.loc[pt_id, 'Tx'] = o_pt_Tx
         #----------------------------------
