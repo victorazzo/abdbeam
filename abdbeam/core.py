@@ -89,7 +89,7 @@ class Section:
         mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1],
                         [45,1], [45,1], [45,1], [45,1], [45,1], [45,1]]
         mts[1].symmetry = 'T'
-        mts[1].calculate_abd_c()
+        mts[1].calculate_properties()
         pts = dict()
         pts[1] = ab.Point(0, -35)
         pts[2] = ab.Point(-50, -35)
@@ -185,11 +185,19 @@ class Section:
         msg.append('')
         msg.append('Replacement Stiffnesses')
         msg.append('-----------------------')
+        EIyy = self.p_c[1,1]
+        EIzz = self.p_c[2,2]
+        EIyz = self.p_c[1,2]
+        EImax = 0.5*(EIyy + EIzz) + (0.25*(EIyy-EIzz)**2 + EIyz**2)**0.5
+        EImin = 0.5*(EIyy + EIzz) - (0.25*(EIyy-EIzz)**2 + EIyz**2)**0.5  
         msg.append('EA = {}'.format(self.p_c[0,0]))
-        msg.append('EIyy = {}'.format(self.p_c[1,1]))
-        msg.append('EIzz = {}'.format(self.p_c[2,2]))
-        msg.append('EIyz = {}'.format(self.p_c[1,2]))
+        msg.append('EIyy = {}'.format(EIyy))
+        msg.append('EIzz = {}'.format(EIzz))
+        msg.append('EIyz = {}'.format(EIyz))
         msg.append('GJ = {}'.format(self.p_c[3,3]))
+        msg.append('EImax = {}'.format(EImax))
+        msg.append('EImin = {}'.format(EImin))
+        msg.append('Princ. Angle = {}'.format(self.principal_axis_angle))     
         msg.append('')
         msg.append('[P_c] - Beam Stiffness Matrix at the Centroid')
         msg.append('---------------------------------------------')
@@ -214,7 +222,7 @@ class Section:
         """Calculates the section properties."""
 
         for mat in self.materials.values():
-            mat.calculate_abd_c()
+            mat.calculate_properties()
         for pt in self.points.values():
             pt.adj_point_ids = set()
         for seg in self.segments.values():
@@ -790,6 +798,7 @@ class Section:
         break_columns : bool, default True
             Of the form {int : abdbeam.Material}        
         """
+        print('')
         print('Internal Loads for Segments')
         print('---------------------------')
         print('')
@@ -798,7 +807,9 @@ class Section:
                                    'display.max_columns', None):
                 print(self.sgs_int_lds_df)                
         else:
-            print(self.sgs_int_lds_df.to_string())        
+            print(self.sgs_int_lds_df.to_string()) 
+        print(self.pts_int_lds_df['Px'])
+        print(self.pts_int_lds_df['Tx'])        
         if ((self.pts_int_lds_df['Px'] != 0).any() or 
            (self.pts_int_lds_df['Tx'] != 0).any()):                        
             print('')
@@ -1060,6 +1071,7 @@ class Point:
         return (('{}({}, {}, {}, {}, {})'.format(self.__class__.__name__,
                 self.y, self.z, self.EA, self.GJ, self.description)))
 
+
 class Segment:
     """
     Class that defines a section segment and calculates its properties.
@@ -1160,11 +1172,14 @@ class Segment:
         materials :  dict
             Of the form {int : abdbeam.Material}.        
         """
+            
+            
         ya = points[self.point_a_id].y
         za = points[self.point_a_id].z
         yb = points[self.point_b_id].y
         zb = points[self.point_b_id].z
         mat = materials[self.material_id]
+        abd_c = mat.abd_c
         deltay = yb - ya
         deltaz = zb - za
         bk = (deltay**2 + deltaz**2)**0.5
@@ -1179,37 +1194,37 @@ class Segment:
                             [0, sinalpha, cosalpha, 0],
                             [0, 0, 0, 1]])
         if type(mat) == ShearConnector:
-            self.fk[0,0] = mat.abd_c[2,2]
+            self.fk[0,0] = abd_c[2,2]
             return
-        aik =np.array([[mat.abd_c[0,0], mat.abd_c[0,3], mat.abd_c[0,5]],
-                       [mat.abd_c[0,3], mat.abd_c[3,3], mat.abd_c[3,5]],
-                       [mat.abd_c[0,5], mat.abd_c[3,5], mat.abd_c[5,5]]])
+        aik =np.array([[abd_c[0,0], abd_c[0,3], abd_c[0,5]],
+                       [abd_c[0,3], abd_c[3,3], abd_c[3,5]],
+                       [abd_c[0,5], abd_c[3,5], abd_c[5,5]]])
         aik_inv = np.linalg.inv(aik)
         self.wk =(1/bk)*np.array(
-           [[mat.abd_c[0,0], mat.abd_c[0,3], 0, -0.5*mat.abd_c[0,5]],
-            [mat.abd_c[0,3], mat.abd_c[3,3], 0, -0.5 * mat.abd_c[3,5]],
+           [[abd_c[0,0], abd_c[0,3], 0, -0.5*abd_c[0,5]],
+            [abd_c[0,3], abd_c[3,3], 0, -0.5 *abd_c[3,5]],
             [0, 0, 12 / (aik_inv[0,0] * bk**2), 0],
-            [-0.5*mat.abd_c[0,5], -0.5*mat.abd_c[3,5], 0, 0.25*mat.abd_c[5,5]]]
+            [-0.5*abd_c[0,5], -0.5*abd_c[3,5], 0, 0.25*abd_c[5,5]]]
             )
         self.wk_inv = np.linalg.inv(self.wk)
         #Ik
         m_tmp = np.array(
-            [[mat.abd_c[0,2], mat.abd_c[0,5], 0, -0.5 * mat.abd_c[2,5]],
-             [mat.abd_c[0,4], mat.abd_c[3,4], 0, -0.5 * mat.abd_c[4,5]]]
+            [[abd_c[0,2], abd_c[0,5], 0, -0.5*abd_c[2,5]],
+             [abd_c[0,4], abd_c[3,4], 0, -0.5*abd_c[4,5]]]
              )
         self.ik =np.dot(m_tmp, np.dot(self.wk_inv, self.rk))
         #Fk
-        m_tmp_2 = bk * np.array([[mat.abd_c[2,2], mat.abd_c[1,5]],
-                                 [mat.abd_c[1,5], mat.abd_c[4,4]]])
+        m_tmp_2 = bk * np.array([[abd_c[2,2], abd_c[1,5]],
+                                 [abd_c[1,5], abd_c[4,4]]])
         self.fk = (m_tmp_2 -1 * np.dot(m_tmp, np.dot(self.wk_inv,
                    np.transpose(m_tmp))))
-        uk =np.array([[mat.abd_c[0,0], mat.abd_c[0,3], mat.abd_c[0,5]],
-                      [mat.abd_c[0,1], mat.abd_c[3,3], mat.abd_c[3,5]],
-                      [mat.abd_c[0,2], mat.abd_c[1,2], mat.abd_c[5,5]]])
+        uk =np.array([[abd_c[0,0], abd_c[0,3], abd_c[0,5]],
+                      [abd_c[0,1], abd_c[3,3], abd_c[3,5]],
+                      [abd_c[0,2], abd_c[1,2], abd_c[5,5]]])
         self.uk_inv = np.linalg.inv(uk)
-        self.vk = np.array([[mat.abd_c[0,2], mat.abd_c[0,4]],
-                       [mat.abd_c[0,5], mat.abd_c[3,4]],
-                       [mat.abd_c[2,5], mat.abd_c[4,5]]])
+        self.vk = np.array([[abd_c[0,2], abd_c[0,4]],
+                       [abd_c[0,5], abd_c[3,4]],
+                       [abd_c[2,5], abd_c[4,5]]])
 
 
 class Cell:
