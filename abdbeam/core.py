@@ -86,8 +86,7 @@ class Section:
         mts[1] = ab.Laminate()
         ply_mat = ab.PlyMaterial(0.166666, 148000, 9650, 4550, 0.3)
         mts[1].ply_materials[1] = ply_mat
-        mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1],
-                        [45,1], [45,1], [45,1], [45,1], [45,1], [45,1]]
+        mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1]] + [[45,1]]*6
         mts[1].symmetry = 'T'
         mts[1].calculate_properties()
         pts = dict()
@@ -118,8 +117,8 @@ class Section:
 
         Lds = dict()
         Lds[101] = ab.Load(1000.0,25000,-36000)
-        Lds[102] = ab.Load(15000.0)
-        Lds[103] = ab.Load(0, 0, 0, 0, 0, 1000.0)
+        Lds[102] = ab.Load(Px=1500.0)
+        Lds[103] = ab.Load(Vz_s=1000.0)
         sc.loads = Lds
         sc.calculate_internal_loads()
         sc.print_internal_loads()
