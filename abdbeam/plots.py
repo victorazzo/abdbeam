@@ -279,9 +279,9 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
 
     Examples
     --------
-    The example below creates a "C" section and plots it. The optional
-    attribute prop_color is changed to purple usinh the HTML color code
-    #800080:
+    The example below creates a "C" section, creates load case id 100 with a
+    vertical shear at the shear center of 150 and plots the 'Nxy' internal
+    loads:
 
     .. code-block:: python
 
