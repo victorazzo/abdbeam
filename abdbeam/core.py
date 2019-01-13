@@ -1022,7 +1022,7 @@ class Point:
         The axial stiffness of the point.
     GJ: float
         The torsional stiffness of the point.
-    description: string, default ''
+    description: str, default ''
         The point description.
 
     Examples
@@ -1055,7 +1055,7 @@ class Point:
             The axial stiffness of the point.
         GJ: float, default 0.0
             The torsional stiffness of the point.
-        description: string, default ''
+        description: str, default ''
             The point description.
         """
 
