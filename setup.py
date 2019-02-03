@@ -9,7 +9,7 @@ setup(
     version='0.2.0',
     description='Cross section analysis of composite material beams of any shape.',
     long_description=readme,
-    long_description_content_type='text/markdown'
+    long_description_content_type='text/markdown',
     author='Danilo S. Victorazzo',
     author_email='victorazzo@gmail.com',
     url='https://github.com/victorazzo/abdbeam',
