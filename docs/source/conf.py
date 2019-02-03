@@ -20,13 +20,13 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'Abdbeam'
-copyright = '2018, Danilo Seixas Victorazzo'
+copyright = '2019, Danilo Seixas Victorazzo'
 author = 'Danilo Seixas Victorazzo'
 
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.1.1'
+release = '0.2.0'
 
 
 # -- General configuration ---------------------------------------------------
