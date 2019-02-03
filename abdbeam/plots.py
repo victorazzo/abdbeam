@@ -13,7 +13,7 @@ from abdbeam.core import _clockwise_angle_from_3_points
 def plot_section(section, segment_coord=False, thickness=True, mid_plane=True,
                  top_bottom=False, centroid=True, shear_center=True,
                  origin=True, princ_dir=True, show_axis=True, prop_color='r',
-                 filter_sgs=[], plot_sgs=[], legend=True, title='',
+                 pt_size=4, filter_sgs=[], plot_sgs=[], legend=True, title='',
                  figsize=(6.4, 4.8), dpi=80):
     """
     Uses matplolib to plot the section geometry and its properties (centroid,
@@ -50,6 +50,9 @@ def plot_section(section, segment_coord=False, thickness=True, mid_plane=True,
     prop_color : string, default 'r'
         The matplotlib color name to be used when plotting centroid, shear
         center and principal axes.
+    pt_size : int, default 4
+        The size in pixels of the marker. Booms (points with EAs and GJs) will
+        have 2 times this size.
     filter_sgs : list, default []
         The list of segment ids that will not be plotted. Of the form [int].
         Will also respect the filter imposed by the plot_sgs parameter.
@@ -97,17 +100,18 @@ def plot_section(section, segment_coord=False, thickness=True, mid_plane=True,
     fig, axs = plt.subplots(1, 1, squeeze=False)
     _plot_section_to_ax(section, axs[0,0], segment_coord, thickness, mid_plane,
                 top_bottom, centroid, shear_center, origin, princ_dir,
-                show_axis, prop_color, filter_sgs, plot_sgs, legend, title)
+                show_axis, prop_color, pt_size, filter_sgs, plot_sgs, legend, title)
     fig.set_size_inches(figsize)
     fig.set_dpi(dpi)
+    plt.ion()
     plt.show()
 
 
 def _plot_section_to_ax(section, ax, segment_coord=True, thickness=True,
                 mid_plane=True, top_bottom=True, centroid=True,
                 shear_center=True, origin=True, princ_dir=True, show_axis=True,
-                prop_color='r', filter_sgs=[], plot_sgs=[], legend=True,
-                title=''):
+                prop_color='r', pt_size=4, filter_sgs=[], plot_sgs=[],
+                legend=True, title=''):
     sc = section
     ax.axis('equal')
     for sg_id, sg in sc.segments.items():
@@ -129,11 +133,11 @@ def _plot_section_to_ax(section, ax, segment_coord=True, thickness=True,
                 lstyle = '--'
             else:
                 lstyle = '-'
-            ax.plot([ya, yb], [za, zb], marker='o', markersize=4,
+            ax.plot([ya, yb], [za, zb], marker='o', markersize=pt_size,
                      linestyle=lstyle, color='k', linewidth=1)
         else:
-            ax.plot([ya], [za], marker='o', markersize=4, color="k")
-            ax.plot([yb], [zb], marker='o', markersize=4, color="k")
+            ax.plot([ya], [za], marker='o', markersize=pt_size, color="k")
+            ax.plot([yb], [zb], marker='o', markersize=pt_size, color="k")
         # Plot segment direction with a 25% segment length
         if segment_coord:
             y = np.array([ya+sg.bk*0.5, ya+sg.bk*0.5, ya+sg.bk*0.65])
@@ -159,10 +163,12 @@ def _plot_section_to_ax(section, ax, segment_coord=True, thickness=True,
                      linewidth=1, transform = rot + base)
         # If point is a boom, add marker with double the size:
         if sc.points[sg.point_a_id].EA > 0 or sc.points[sg.point_a_id].GJ > 0:
-            ax.scatter([ya], [za], s=80, facecolors='none', edgecolors='k')
+            ax.scatter([ya], [za], s=20*pt_size, facecolors='none',
+                       edgecolors='k')
             #plt.plot([ya], [za], marker='o', markersize=10, color="g")
         if sc.points[sg.point_b_id].EA > 0 or sc.points[sg.point_b_id].GJ > 0:
-            ax.scatter([yb], [zb], s=80, facecolors='none', edgecolors='k')
+            ax.scatter([yb], [zb], s=20*pt_size, facecolors='none',
+                       edgecolors='k')
             #plt.plot([yb], [zb], marker='o', markersize=10, color="g")
         # Plot origin
     if origin:
@@ -204,10 +210,11 @@ def _plot_section_to_ax(section, ax, segment_coord=True, thickness=True,
 
 
 def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
-            'My', 'Mxy'], title_list=[], thickness=True, segment_contour=True,
-            diagram=True, diagram_contour=False, diagram_alpha=0.15,
-            diagram_scale=1.0, contour_color='jet_r', contour_levels=10,
-            filter_sgs=[], plot_sgs=[], no_result_sgs=[], result_sgs=[],
+            'My', 'Mxy'], title_list=[], thickness=True, pt_size=4,
+            segment_contour=True, diagram=True, diagram_contour=False,
+            diagram_alpha=0.15, diagram_scale=1.0, diagram_factor_list=[],
+            contour_color='jet_r', contour_levels=10, filter_sgs=[],
+            plot_sgs=[], no_result_sgs=[], result_sgs=[],
             figsize=(6.4, 4.8), dpi=80):
     """
     Uses matplotlib to plot the internal loads associated to a section and load
@@ -233,9 +240,12 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
         A list containing all the plot titles to be added. An empty list (the
         default) will use the list int_load_list as titles. If the length of
         this list is smaller than int_load_list's length, None values will be
-        assumed to the last items.
+        assumed for the last items.
     thickness : bool, default True
         If True, will plot the segments thickness.
+    pt_size : int, default 4
+        The size in pixels of the marker. Booms (points with EAs and GJs) will
+        have 2 times this size.
     segment_contour : bool, default True
         If True, will plot the internal load contour inside a segment
         thickness.
@@ -252,6 +262,12 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
         A scale factor to be applied to the diagram plot. Negative values will
         reverse its plot direction. Does not affect the result values, only the
         diagram plot.
+    diagram_factor_list : list, default []
+        A list containing factors to multiply each segment's diagram. An empty
+        list (the default) is a list with factors=1. If the length of
+        this list is smaller than the number of segments, 1.0 values will be
+        assumed for the last items. The factors' order is the same as the order
+        in which the segments were entered in the section segments dictionary.
     contour_color: st, default 'jet_r'
         The matplotlib's colormap name to be used in all contours.
     contour_levels: int, default 10
@@ -325,18 +341,20 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
         else:
             fig_title = title
         _plot_section_to_ax(sc, axs[i//2, col], segment_coord=False,
-                thickness=thickness, mid_plane=thickness, top_bottom=False,
-                centroid=False, shear_center=False, origin=False,
-                princ_dir=False, show_axis=False, filter_sgs=filter_sgs,
-                plot_sgs=plot_sgs, legend=False, title=fig_title)
+                thickness=thickness, pt_size=pt_size, mid_plane=thickness,
+                top_bottom=False, centroid=False, shear_center=False,
+                origin=False, princ_dir=False, show_axis=False,
+                filter_sgs=filter_sgs, plot_sgs=plot_sgs, legend=False,
+                title=fig_title)
         axs[i//2, col].autoscale()
         _plot_internal_load_curves(sc, fig, axs[i//2, col], load_id, load,
                 thickness=thickness, segment_contour=segment_contour,
                 diagram=diagram, diagram_contour=diagram_contour,
                 diagram_alpha=diagram_alpha, contour_color=contour_color,
                 contour_levels=contour_levels, diagram_scale=diagram_scale,
-                filter_sgs=filter_sgs, plot_sgs= plot_sgs,
-                no_result_sgs=no_result_sgs, result_sgs=result_sgs)
+                diagram_factor_list=diagram_factor_list, filter_sgs=filter_sgs,
+                plot_sgs= plot_sgs, no_result_sgs=no_result_sgs,
+                result_sgs=result_sgs)
         col = 1-col
     axs[-1,-1].axis('off')
     if figsize != None:
@@ -346,14 +364,15 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
     plt.tight_layout()
     if len(int_load_list) > 1:
         plt.subplots_adjust(top=0.85)
+    plt.ion()
     plt.show()
 
 
 def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
             segment_contour=True, diagram=True, diagram_contour=False,
             diagram_alpha=0.15, contour_color='jet_r', diagram_scale=1.0,
-            filter_sgs=[], plot_sgs=[], no_result_sgs=[], result_sgs=[],
-            contour_levels=10):
+            diagram_factor_list=[], filter_sgs=[], plot_sgs=[],
+            no_result_sgs=[], result_sgs=[], contour_levels=10):
     sc = section
     include_sgs = []
     if result_sgs and plot_sgs:
@@ -385,6 +404,10 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
             levels = np.linspace(max_load, 0, contour_levels+1).tolist()
     else:
         levels = np.linspace(min_load, max_load, contour_levels+1).tolist()
+    # Format the diagram factor list
+    diagram_factor_list = diagram_factor_list[:len(sc.segments)]
+    diagram_factor_list = diagram_factor_list + (len(sc.segments)
+                          - len(diagram_factor_list))*[1.0]
     # Calculate load value to diagram units ratio
     # This expects only a section plot with no properties
     x0, y0, width, height = ax.dataLim.bounds
@@ -394,7 +417,7 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
     else:
         dgm_f = 1.0
     # Cycle segments
-    for sg_id, sg in sc.segments.items():
+    for (sg_id, sg), diagf in zip(sc.segments.items(), diagram_factor_list):
         if sg_id in exclude_sgs: continue
         if include_sgs:
             if sg_id not in include_sgs: continue
@@ -433,11 +456,11 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
                 x_limits = ax.get_xlim()
                 x_delta_value = abs(x_limits[1]-x_limits[0])
                 t_per_pixel = x_delta_value/width_pixels
-                t = 2.0*t_per_pixel
+                t = 1.0*t_per_pixel
             xi, yi = np.meshgrid(np.linspace(ya, ya+sg.bk, 25),
                                  np.linspace(za - t/2, za + t/2, 2))
             zi = _f((xi-ya)/sg.bk, a, b, c)
-            cf=ax.contourf(xi, yi, zi, levels=levels,
+            cf = ax.contourf(xi, yi, zi, levels=levels,
                            cmap=plt.get_cmap(contour_color), alpha=1.00,
                            transform=(rot+base))
         # Plot contoured load diagrams
@@ -450,7 +473,7 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
                            alpha=diagram_alpha, transform=(rot+base))
             xi=np.linspace(ya, ya+sg.bk, 25)
             yi=_f((xi-ya)/sg.bk, a, b, c)
-            yi = za+yi*dgm_f
+            yi = za+yi*dgm_f*diagf
             verts = [(ya, za), *zip(xi, yi), (ya+sg.bk, za)]
             poly = Polygon(verts, fc='none', ec='gray', transform=(rot+base),
                           alpha=0.5)
@@ -462,7 +485,7 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
             y = np.linspace(0, 1, 25)
             z = _f(y,a,b,c)
             y *= sg.bk
-            z *= dgm_f
+            z *= dgm_f*diagf
             y = np.insert(y, 0, 0.0)
             z = np.insert(z, 0, 0.0)
             y = np.append(y, sg.bk)
