@@ -51,7 +51,7 @@ class Section:
     sc_int_strains_df : pandas.DataFrame
         The pandas dataframe containing the axial strain, the Y curvature, the
         Z curvature and the rate of twist of the section relative to the
-        centroid.
+        centroid (to be implemented).
     sgs_int_lds_df: pandas.DataFrame
         A pandas dataframe containing the segments internal loads for all load
         cases in the loads dictionary. Populated by the
@@ -86,8 +86,7 @@ class Section:
         mts[1] = ab.Laminate()
         ply_mat = ab.PlyMaterial(0.166666, 148000, 9650, 4550, 0.3)
         mts[1].ply_materials[1] = ply_mat
-        mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1],
-                        [45,1], [45,1], [45,1], [45,1], [45,1], [45,1]]
+        mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1]] + [[45,1]]*6
         mts[1].symmetry = 'T'
         mts[1].calculate_properties()
         pts = dict()
@@ -118,8 +117,8 @@ class Section:
 
         Lds = dict()
         Lds[101] = ab.Load(1000.0,25000,-36000)
-        Lds[102] = ab.Load(15000.0)
-        Lds[103] = ab.Load(0, 0, 0, 0, 0, 1000.0)
+        Lds[102] = ab.Load(Px=1500.0)
+        Lds[103] = ab.Load(Vz_s=1000.0)
         sc.loads = Lds
         sc.calculate_internal_loads()
         sc.print_internal_loads()
@@ -175,13 +174,13 @@ class Section:
         msg.append('')
         msg.append('Centroid')
         msg.append('--------')
-        msg.append('yc = {}'.format(self.yc))
-        msg.append('zc = {}'.format(self.zc))
+        msg.append('yc\t = {:.8e}'.expandtabs(6).format(self.yc))
+        msg.append('zc\t = {:.8e}'.expandtabs(6).format(self.zc))
         msg.append('')
         msg.append('Shear Center')
         msg.append('------------')
-        msg.append('ys = {}'.format(self.ys))
-        msg.append('zs = {}'.format(self.zs))
+        msg.append('ys\t = {:.8e}'.expandtabs(6).format(self.ys))
+        msg.append('zs\t = {:.8e}'.expandtabs(6).format(self.zs))
         msg.append('')
         msg.append('Replacement Stiffnesses')
         msg.append('-----------------------')
@@ -190,14 +189,15 @@ class Section:
         EIyz = self.p_c[1,2]
         EImax = 0.5*(EIyy + EIzz) + (0.25*(EIyy-EIzz)**2 + EIyz**2)**0.5
         EImin = 0.5*(EIyy + EIzz) - (0.25*(EIyy-EIzz)**2 + EIyz**2)**0.5
-        msg.append('EA = {}'.format(self.p_c[0,0]))
-        msg.append('EIyy = {}'.format(EIyy))
-        msg.append('EIzz = {}'.format(EIzz))
-        msg.append('EIyz = {}'.format(EIyz))
-        msg.append('GJ = {}'.format(self.p_c[3,3]))
-        msg.append('EImax = {}'.format(EImax))
-        msg.append('EImin = {}'.format(EImin))
-        msg.append('Princ. Angle = {}'.format(self.principal_axis_angle))
+        msg.append('EA\t = {:.8e}'.expandtabs(6).format(self.p_c[0,0]))
+        msg.append('EIyy\t = {:.8e}'.expandtabs(6).format(EIyy))
+        msg.append('EIzz\t = {:.8e}'.expandtabs(6).format(EIzz))
+        msg.append('EIyz\t = {:.8e}'.expandtabs(6).format(EIyz))
+        msg.append('GJ\t = {:.8e}'.expandtabs(6).format(self.p_c[3,3]))
+        msg.append('EImax\t = {:.8e}'.expandtabs(6).format(EImax))
+        msg.append('EImin\t = {:.8e}'.expandtabs(6).format(EImin))
+        msg.append('Angle\t = {:.8e}'.expandtabs(6).format(
+                                                  self.principal_axis_angle))
         msg.append('')
         msg.append('[P_c] - Beam Stiffness Matrix at the Centroid')
         msg.append('---------------------------------------------')
@@ -233,9 +233,8 @@ class Section:
         # Add the contribution of each segment (as open) to the beam
         # stiffness matrix.
         for seg in self.segments.values():
-            if type(self.materials[seg.material_id]) != ShearConnector:
-                self.p += (np.dot(np.transpose(seg.rk),
-                           np.dot(seg.wk_inv, seg.rk)))
+            self.p += (np.dot(np.transpose(seg.rk),
+                       np.dot(seg.wk_inv, seg.rk)))
         # Add the contributions from the booms
         for pt in self.points.values():
                 self.p[0, 0] += pt.EA
@@ -324,6 +323,11 @@ class Section:
             # The (2An*X1n) equation
             coef[2*n + 3, i] += 2*self.cells[cell_id].area
         coef[2*n:(2*n + 4), 2*n:(2*n + 4)] = self.p
+        # Add a small number to the diagonal to assure coef can be inverted
+        # (needed for sections with connectors only)
+        non_zero_diag = np.zeros_like(coef)
+        np.fill_diagonal(non_zero_diag, 1e-99)
+        coef+=non_zero_diag
         tmp_matrix = np.linalg.inv(coef)
         # Cycle load_i: unitary Px, then My, then Mz, then Tx
         #----------------------
@@ -772,8 +776,6 @@ class Section:
                 print(self.sgs_int_lds_df)
         else:
             print(self.sgs_int_lds_df.to_string())
-        print(self.pts_int_lds_df['Px'])
-        print(self.pts_int_lds_df['Tx'])
         if ((self.pts_int_lds_df['Px'] != 0).any() or
            (self.pts_int_lds_df['Tx'] != 0).any()):
             print('')
@@ -937,7 +939,11 @@ class Section:
                 # q_op
                 v[c] -= f*sg.fk[0,0] * Nxy_open_sgs[s]
                 v[c+ncells] -= f*sg.fk[1,0] * Nxy_open_sgs[s]
-
+        # Add a small number to the diagonal to assure m can be inverted
+        # (needed for sections with connectors only)
+        non_zero_diag = np.zeros_like(m)
+        np.fill_diagonal(non_zero_diag, 1e-99)
+        m += non_zero_diag
         tmp_m = np.dot(np.linalg.inv(m), v)
         for c, c_id in enumerate(self.cells.keys()):
            for s, (sg_id, sg) in enumerate(self.segments.items()):
@@ -983,7 +989,7 @@ class Point:
         The axial stiffness of the point.
     GJ: float
         The torsional stiffness of the point.
-    description: str, default ''
+    description: str
         The point description.
 
     Examples
@@ -1150,9 +1156,6 @@ class Segment:
                             [0, cosalpha, -sinalpha, 0],
                             [0, sinalpha, cosalpha, 0],
                             [0, 0, 0, 1]])
-        if type(mat) == ShearConnector:
-            self.fk[0,0] = abd_c[2,2]
-            return
         aik =np.array([[abd_c[0,0], abd_c[0,3], abd_c[0,5]],
                        [abd_c[0,3], abd_c[3,3], abd_c[3,5]],
                        [abd_c[0,5], abd_c[3,5], abd_c[5,5]]])
@@ -1243,19 +1246,23 @@ class Load:
     Attributes
     ----------
     Px_c : float
-        The axial load at the centroid of the cross section.
+        The axial load at the centroid of the cross section. Positive sign
+        induces tension in the cross section.
     My : float
-        The moment around the Y axis.
-    My : float
-        The moment around the Y axis.
+        The moment around the Y axis. Positive sign induces tension in the
+        positive yz quadrant of the beam cross section.
+    Mz : float
+        The moment around the Z axis. Positive sign induces tension in the
+        positive yz quadrant of the beam cross section.
     Tx : float
-        The torsion around the X axis.
+        The torque around the X axis. Positive sign is counterclockwise.
     Vy_s: float
         The shear force oriented with the Y axis at the shear center.
     Vz_s: float
         The shear force oriented with the section Z axis at the shear.
     Px: float
-        The axial force located at (yp, zp).
+        The axial force located at (yp, zp). Positive sign induces tension in
+        the cross section.
     yp: float
         The Y axis location of the Px axial force.
     zp: float
@@ -1278,8 +1285,8 @@ class Load:
         import abdbeam as ab
         sc = ab.Section()
         Lds = dict()
-        Lds[101] = ab.Load(1000.0,25000,-36000)
-        Lds[102] = ab.Load(15000.0)
+        Lds[101] = ab.Load(My=5e6)
+        Lds[102] = ab.Load(Tx=250000, Vz=5000.0)
         Lds[103] = ab.Load(0, 0, 0, 0, 0, 1000.0)
         sc.loads = Lds
     """
@@ -1293,31 +1300,35 @@ class Load:
         Attributes
         ----------
         Px_c : float, default 0.0
-            The axial load at the centroid of the cross section.
+            The axial load at the centroid of the cross section. Positive sign
+            induces tension in the cross section.
         My : float, default 0.0
-            The moment around the Y axis.
-        My : float, default 0.0
-            The moment around the Y axis.
+            The moment around the Y axis. Positive sign induces tension in the
+            positive yz quadrant of the beam cross section.
+        Mz : float, default 0.0
+            The moment around the Z axis. Positive sign induces tension in the
+            positive yz quadrant of the beam cross section.
         Tx : float, default 0.0
-            The torsion around the X axis.
+            The torque around the X axis. Positive sign is counterclockwise.
         Vy_s: float, default 0.0
             The shear force oriented with the Y axis at the shear center.
         Vz_s: float, default 0.0
             The shear force oriented with the section Z axis at the shear.
         Px: float, default 0.0
-            The axial force located at (yp, zp).
+            The axial force located at (yp, zp). Positive sign induces tension
+            in the cross section.
         yp: float, default 0.0
-            The Y axis location of the Px axial force
+            The Y axis location of the Px axial force.
         zp: float, default 0.0
-            The Z axis location of the Px axial force
+            The Z axis location of the Px axial force.
         Vy: float, default 0.0
-            The shear force oriented with the Y axis at zv
+            The shear force oriented with the Y axis at zv.
         Vz: float, default 0.0
-            The shear force oriented with the Z axis at yv
+            The shear force oriented with the Z axis at yv.
         yv: float, default 0.0
-            The Y axis location of the Vz shear force
+            The Y axis location of the Vz shear force.
         zv: float, default 0.0
-            The Z axis location of the Vy shear force
+            The Z axis location of the Vy shear force.
         """
         self.Px_c = Px_c
         self.My = My

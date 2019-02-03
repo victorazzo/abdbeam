@@ -21,6 +21,9 @@ class Material:
     abd_c : numpy.ndarray
         The material 6x6 compliance matrix based on CLT (Classical Laminate
         Theory).
+    abd : numpy.ndarray
+        The material 6x6 stiffness matrix based on CLT (Classical Laminate
+        Theory).
     description: str
         The description of the material.
 
@@ -28,8 +31,8 @@ class Material:
     -------
     calculate_properties()
         Method used by classes that inherit this base class to calculate the
-        compliance matrix of the material based on the Classical Laminate
-        Theory.
+        stiffness abd and compliance abd_c matrices of the material based on
+        the Classical Laminate Theory.
     """
 
 
@@ -61,8 +64,8 @@ class Material:
     def calculate_properties(self):
         """
         Method used by classes that inherit this base class to calculate the
-        compliance matrix of the material based on the Classical Laminate
-        Theory.
+        stiffness abd and compliance abd_c matrices of the material based on
+        the Classical Laminate Theory.
 
         For this parent class, abd_c needs to be manually provided.
         """
@@ -86,12 +89,15 @@ class Isotropic(Material):
     abd_c : numpy.ndarray
         The material 6x6 compliance matrix based on CLT (Classical Laminate
         Theory).
+    abd : numpy.ndarray
+        The material 6x6 stiffness matrix based on CLT (Classical Laminate
+        Theory).
 
     Methods
     -------
     calculate_properties()
-        Calculates the compliance matrix of the isotropic material based on
-        the Classical Laminate Theory.
+        Calculates the stiffness abd and compliance abd_c matrices of the
+        isotropic material based on the Classical Laminate Theory.
 
     Examples
     --------
@@ -133,8 +139,8 @@ class Isotropic(Material):
 
     def calculate_properties(self):
         """
-        Calculates the compliance matrix of the isotropic material based on
-        the Classical Laminate Theory.
+        Calculates the stiffness abd and compliance abd_c matrices of the
+        isotropic material based on the Classical Laminate Theory.
         """
         E=self.E
         t=self.t
@@ -158,8 +164,10 @@ class ShearConnector(Material):
     """
     A shear connector that inherits the Material class.
 
-    Shear connectors transfer only shear (only the compliance matrix term a66
-    is not zero and equal to 1/(G*t)).
+    Shear connectors have only the stiffness term A66 as nonzero and for this
+    reason can only transfer shear loads. Small values are added to other terms
+    of the stiffness matrix to prevent a singular matrix. For this material,
+    only the compliance term a66 becomes an user input and is equal to 1/(G*t).
 
     Attributes
     ----------
@@ -172,19 +180,22 @@ class ShearConnector(Material):
     abd_c : numpy.ndarray
         The material 6x6 compliance matrix based on CLT (Classical Laminate
         Theory).
+    abd : numpy.ndarray
+        The material 6x6 stiffness matrix based on CLT (Classical Laminate
+        Theory).
 
     Methods
     -------
     calculate_properties()
-        Calculates the compliance matrix of the shear connector based on the
-        Classical Laminate Theory.
+        Calculates the stiffness abd and compliance abd_c matrices of the
+        shear connector based on the Classical Laminate Theory.
 
     Examples
     --------
     .. code-block:: python
 
         mts = dict()
-        mts[1] = ab.ShearConnector(0.25, 6380000, 'Quarter Inch Fastener')
+        mts[1] = ab.ShearConnector(0.075, 6380000, 'Shear-only Skin')
         mts[1].calculate_properties()
     """
 
@@ -216,18 +227,23 @@ class ShearConnector(Material):
 
     def calculate_properties(self):
         """
-        Calculates the compliance matrix of the shear connector based on the
-        Classical Laminate Theory.
-
-        Note: all terms of the compliance matrix are zero, except a66 =
-        1/(G*t).
+        Calculates the stiffness abd and compliance abd_c matrices of the
+        shear connector based on the Classical Laminate Theory.
         """
 
         self.abd_c = np.zeros((6,6), float)
-        self.abd_c[2,2] = 1.0 / (self.G*self.t)
-        self.abd = np.zeros((6,6), float)
-        self.abd[2,2] = 1/self.abd_c[2,2]
-
+        abd_c=self.abd_c
+        abd_c[0,0] = 1e+101
+        abd_c[1,1] = 1e+101
+        abd_c[0,1] = -3e+101
+        abd_c[1,0] = -3e+101
+        abd_c[2,2] = 1/(self.G*self.t)
+        abd_c[3,3] = 1.2e+106
+        abd_c[4,4] = 1.2e+106
+        abd_c[3,4] = -3.6e+105
+        abd_c[4,3] = -3.6e+105
+        abd_c[5,5] = 3.12e+106
+        self.abd = np.linalg.inv(abd_c)
 
 class PlyMaterial():
     """
@@ -245,12 +261,6 @@ class PlyMaterial():
         The shear modulus of the ply.
     description: str
         The description of the ply.
-    abd_c : numpy.ndarray
-        The material 6x6 compliance matrix based on CLT (Classical Laminate
-        Theory).
-    abd : numpy.ndarray
-        The material 6x6 stiffness matrix based on CLT (Classical Laminate
-        Theory).
 
     Examples
     --------
@@ -323,9 +333,8 @@ class Laminate(Material):
     Methods
     -------
     calculate_properties()
-        Calculates the compliance matrix of the laminate based on the
-        Classical Laminate Theory. Will also retain the abd stiffness matrix
-        array in self.abd.
+        Calculates the stiffness abd and compliance abd_c matrices of the
+        laminate based on the Classical Laminate Theory.
 
     Examples
     --------
@@ -342,7 +351,6 @@ class Laminate(Material):
         mts[1].calculate_properties()
     """
 
-
     def __init__(self):
         super().__init__(0.0)
         self.t = 0.0
@@ -358,10 +366,10 @@ class Laminate(Material):
 
     def calculate_properties(self):
         """
-        Calculates the compliance matrix of the laminate based on the
-        Classical Laminate Theory. Will also retain the abd stiffness matrix
-        array in self.abd.
+        Calculates the stiffness abd and compliance abd_c matrices of the
+        laminate based on the Classical Laminate Theory.
         """
+
         self.t = 0
         abd = np.zeros((6,6), float)
         plies = self.plies[:]
