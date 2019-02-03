@@ -1,16 +1,17 @@
 # Abdbeam : composites cross section analysis
 A Python package for the cross section analysis of composite material beams of any shape. 
 
+![Abdbeam Hat Example](https://user-images.githubusercontent.com/24232637/51789056-0d42e200-2153-11e9-9fae-cdd82db90422.png)
+
 ## Main features
 
-These are a few things you can do with **Abdbeam** today:
+These are a few things you can do with **Abdbeam**:
 
-* Use a fast, analytical thin-walled anisotropic composite beam theory including closed cells, open branches, shear connectors and booms (discrete stiffeners containing axial and torsional stiffnesses);
+* Use a fast thin-walled anisotropic composite beam theory including closed cells, open branches, shear connectors and booms (discrete stiffeners containing axial and torsional stiffnesses);
 * Recover replacement stiffnesses (EA, EIyy, EIzz, EIyz, GJ) and/or a full 4 x 4 stiffness matrix for beams with arbitrary layups and shapes;
 * Recover centroid and shear center locations;
-* Obtain internal load distributions (Nx, Nxy, Mx, My, Mxy for segments; Px and Tx for booms) for a large number of cross section load cases (defined by Px, My, Mz, Tz, Vy and Vz section loads).
-
-Note: the effects of shear deformation and restrained warping are assumed negligible in **Abdbeam**. Check our theory section for references containing more details.
+* Obtain internal load distributions (Nx, Nxy, Mx, My, Mxy for segments; Px and Tx for booms) for a large number of cross section load cases (defined by Px, My, Mz, Tz, Vy and Vz section loads);
+* Plot cross sections, their properties and internal loads.
 
 ## Installing
 
@@ -20,20 +21,23 @@ Install using PyPI ([Python package index](https://pypi.org/project/abdbeam)) :
 pip install abdbeam
 ```
 
-The source code is hosted on GitHub at https://github.com/victorazzo/abdbeam
+## Source and Documentation
+
+The source code is hosted on GitHub at https://github.com/victorazzo/abdbeam and the documentation can be found at https://www.abdbeam.org.
 
 ## Dependencies
 
 - [NumPy](https://www.numpy.org)
 - [Pandas](https://pandas.pydata.org)
+- [Matplotlib](https://matplotlib.org)
 
 ## Example
 
-Let's use **Abdbeam** to extract the basic properties of the cross section with two closed cells below:
+Let's use **Abdbeam** to analyze the cross section with two closed cells below:
 
-![Cross Section Example](https://user-images.githubusercontent.com/24232637/50049830-266c6380-00bc-11e9-808d-97896d3f3e16.png)  
+<img src="https://user-images.githubusercontent.com/24232637/50049830-266c6380-00bc-11e9-808d-97896d3f3e16.png" width="400">
 
-An example script to achieve this is:
+Start creating the section materials, its points and segments (we'll also calculate the section properties and request a summary at the end):
 
 ```python
 import abdbeam as ab
@@ -43,8 +47,7 @@ mts = dict()
 mts[1] = ab.Laminate()
 ply_mat = ab.PlyMaterial(0.166666, 148000, 9650, 4550, 0.3)
 mts[1].ply_materials[1] = ply_mat
-mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1],
-               [45,1], [45,1], [45,1], [45,1], [45,1], [45,1]]
+mts[1].plies = [[0,1]]*6 + [[45,1]]*6
 # Create a points dictionary based on Y and Z point coordinates:
 pts = dict()
 pts[1] = ab.Point(0, -35)
@@ -70,7 +73,9 @@ sc.segments = sgs
 sc.calculate_properties()
 sc.summary()
 ```
+
 Which prints:
+
 ```sh
 Section Summary
 ===============
@@ -81,21 +86,24 @@ Number of cells: 2
 
 Centroid
 --------
-yc = -0.26778063610746794
-zc = 0.0
+yc     = -2.67780636e-01
+zc     = 0.00000000e+00
 
 Shear Center
 ------------
-ys = -0.15909143196852882
-zs = -0.0005864193651285987
+ys     = -1.59091432e-01
+zs     = -5.86419365e-04
 
 Replacement Stiffnesses
 -----------------------
-EA = 68032952.29455881
-EIyy = 52483433984.419556
-EIzz = 83640874772.70999
-EIyz = 0.0
-GJ = 12376231660.76024
+EA     = 6.80329523e+07
+EIyy   = 5.24834340e+10
+EIzz   = 8.36408748e+10
+EIyz   = 0.00000000e+00
+GJ     = 1.23762317e+10
+EImax  = 8.36408748e+10
+EImin  = 5.24834340e+10
+Angle  = 0.00000000e+00
 
 [P_c] - Beam Stiffness Matrix at the Centroid
 ---------------------------------------------
@@ -126,18 +134,38 @@ GJ = 12376231660.76024
  [1.74965018e-10 0.00000000e+00 2.04936911e-14 8.28315446e-11]]
 ```
 
-Now let's create two load cases (identified as 101 and 102)  and calculate the internal loads:
+Now let's create two load cases (101 and 102) and calculate their internal loads:
 
 ```python
 sc.loads = dict()
-sc.loads[101] = ab.Load(1000.0,25000,-36000)
-sc.loads[102] = ab.Load(15000)
+sc.loads[101] = ab.Load(My=5e6)
+sc.loads[102] = ab.Load(Tx=250000, Vz=5000.0)
 sc.calculate_internal_loads()
 ```
-And to print all internal loads:
+
+Next print all internal loads (which outputs a lot of data we'll not show here):
 ```python
 sc.print_internal_loads()
 ```
+
+Or access the Pandas dataframe containing these internal loads directly:
+```python
+df = sc.sgs_int_lds_df
+```
+
+Next plot the cross section and its properties (we'll show the segment orientations, hide legends, change the centroid , shear center and principal axis colors and use a custom figure size):
+```python
+ab.plot_section(sc, segment_coord=True, title='Abdbeam - Example', 
+                legend=False, prop_color='#471365', figsize=(5.12, 3.84))
+```
+![Abdbeam Plot Section Example](https://user-images.githubusercontent.com/24232637/51790615-babef100-2165-11e9-83c8-72a0d1a6c1f0.png)
+
+Finally, plot Nx and Nxy for load case 101 (we'll change the matplotlib contour palette, reduce the internal load diagram scale, and use a custom figure size):
+```python
+ab.plot_section_loads(sc, 101, contour_color='viridis', diagram_scale=0.7, 
+                      int_load_list=['Nx', 'Nxy'], figsize=(5.12, 3.84))
+```
+![Abdbeam Plot Loads Example](https://user-images.githubusercontent.com/24232637/51790027-feadf800-215d-11e9-8ba8-d7e444484eb8.png)
 
 ## License
 
@@ -155,5 +183,10 @@ For the theory behind Abdbeam, the most complete reference is:
 
 These are also great references on its originating theory:
 
-* [ Kollár LP and Springer GS. Mechanics of composite structures. Cambridge: Cambridge University Press, 2003.](https://www.amazon.com/Mechanics-Composite-Structures-L%C3%A1szl%C3%B3-Koll%C3%A1r/dp/0521126908/ref=sr_1_1?ie=UTF8&qid=1544936929&sr=8-1&keywords=Mechanics+of+composite+structures)
+* [Kollár LP, Springer GS. Mechanics of composite structures. Cambridge university press; 2003 Feb 17.](https://www.amazon.com/Mechanics-Composite-Structures-L%C3%A1szl%C3%B3-Koll%C3%A1r/dp/0521126908/ref=sr_1_1?ie=UTF8&qid=1544936929&sr=8-1&keywords=Mechanics+of+composite+structures)
 * [Kollár LP and Pluzsik A. Analysis of thin-walled composite beams with arbitrary layup. J Reinf Plast Compos 2002; 21: 1423–1465.](https://journals.sagepub.com/doi/abs/10.1177/0731684402021016928)
+
+
+Note: the effects of shear deformation and restrained warping are assumed negligible in **Abdbeam**. Check the references above for more details.
+
+

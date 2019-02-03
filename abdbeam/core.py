@@ -51,16 +51,16 @@ class Section:
     sc_int_strains_df : pandas.DataFrame
         The pandas dataframe containing the axial strain, the Y curvature, the
         Z curvature and the rate of twist of the section relative to the
-        centroid.
+        centroid (to be implemented).
     sgs_int_lds_df: pandas.DataFrame
         A pandas dataframe containing the segments internal loads for all load
-        cases in the loads dictionary. Populated by the 
-        calculate_internal_loads method.    
+        cases in the loads dictionary. Populated by the
+        calculate_internal_loads method.
     pts_int_lds_df: pandas.DataFrame
         A pandas dataframe containing the points internal loads for all load
-        cases in the loads dictionary. Populated by the 
-        calculate_internal_loads method.   
-        
+        cases in the loads dictionary. Populated by the
+        calculate_internal_loads method.
+
     Methods
     -------
     summary()
@@ -70,13 +70,13 @@ class Section:
     calculate_internal_loads()
         Calculates internal loads for all load cases in the loads dictionary.
     print_internal_loads()
-        Prints to the console segment and point internal loads for all load 
-        cases in the loads dictionary.    
+        Prints to the console segment and point internal loads for all load
+        cases in the loads dictionary.
 
     Examples
     --------
     Creating a 2-cells beam cross section comprised of asymmetric laminate
-	segments (see appendix example in reference theory paper):
+    segments (see appendix example in reference theory paper):
 
     .. code-block:: python
 
@@ -86,8 +86,7 @@ class Section:
         mts[1] = ab.Laminate()
         ply_mat = ab.PlyMaterial(0.166666, 148000, 9650, 4550, 0.3)
         mts[1].ply_materials[1] = ply_mat
-        mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1],
-                        [45,1], [45,1], [45,1], [45,1], [45,1], [45,1]]
+        mts[1].plies = [[0,1], [0,1], [0,1], [0,1], [0,1], [0,1]] + [[45,1]]*6
         mts[1].symmetry = 'T'
         mts[1].calculate_properties()
         pts = dict()
@@ -110,16 +109,16 @@ class Section:
         sc.segments = sgs
         sc.calculate_properties()
         sc.summary()
-        
+
     Adding two load cases to the section above and printing their internal
     loads:
-    
+
     .. code-block:: python
 
         Lds = dict()
         Lds[101] = ab.Load(1000.0,25000,-36000)
-        Lds[102] = ab.Load(15000.0)
-        Lds[103] = ab.Load(0, 0, 0, 0, 0, 1000.0)
+        Lds[102] = ab.Load(Px=1500.0)
+        Lds[103] = ab.Load(Vz_s=1000.0)
         sc.loads = Lds
         sc.calculate_internal_loads()
         sc.print_internal_loads()
@@ -161,7 +160,7 @@ class Section:
 
     def __repr__(self):
         return ('{}()'.format(self.__class__.__name__))
-    
+
 
     def summary(self):
         """Prints a summary of the section properties."""
@@ -175,13 +174,13 @@ class Section:
         msg.append('')
         msg.append('Centroid')
         msg.append('--------')
-        msg.append('yc = {}'.format(self.yc))
-        msg.append('zc = {}'.format(self.zc))
+        msg.append('yc\t = {:.8e}'.expandtabs(6).format(self.yc))
+        msg.append('zc\t = {:.8e}'.expandtabs(6).format(self.zc))
         msg.append('')
         msg.append('Shear Center')
         msg.append('------------')
-        msg.append('ys = {}'.format(self.ys))
-        msg.append('zs = {}'.format(self.zs))
+        msg.append('ys\t = {:.8e}'.expandtabs(6).format(self.ys))
+        msg.append('zs\t = {:.8e}'.expandtabs(6).format(self.zs))
         msg.append('')
         msg.append('Replacement Stiffnesses')
         msg.append('-----------------------')
@@ -189,15 +188,16 @@ class Section:
         EIzz = self.p_c[2,2]
         EIyz = self.p_c[1,2]
         EImax = 0.5*(EIyy + EIzz) + (0.25*(EIyy-EIzz)**2 + EIyz**2)**0.5
-        EImin = 0.5*(EIyy + EIzz) - (0.25*(EIyy-EIzz)**2 + EIyz**2)**0.5  
-        msg.append('EA = {}'.format(self.p_c[0,0]))
-        msg.append('EIyy = {}'.format(EIyy))
-        msg.append('EIzz = {}'.format(EIzz))
-        msg.append('EIyz = {}'.format(EIyz))
-        msg.append('GJ = {}'.format(self.p_c[3,3]))
-        msg.append('EImax = {}'.format(EImax))
-        msg.append('EImin = {}'.format(EImin))
-        msg.append('Princ. Angle = {}'.format(self.principal_axis_angle))     
+        EImin = 0.5*(EIyy + EIzz) - (0.25*(EIyy-EIzz)**2 + EIyz**2)**0.5
+        msg.append('EA\t = {:.8e}'.expandtabs(6).format(self.p_c[0,0]))
+        msg.append('EIyy\t = {:.8e}'.expandtabs(6).format(EIyy))
+        msg.append('EIzz\t = {:.8e}'.expandtabs(6).format(EIzz))
+        msg.append('EIyz\t = {:.8e}'.expandtabs(6).format(EIyz))
+        msg.append('GJ\t = {:.8e}'.expandtabs(6).format(self.p_c[3,3]))
+        msg.append('EImax\t = {:.8e}'.expandtabs(6).format(EImax))
+        msg.append('EImin\t = {:.8e}'.expandtabs(6).format(EImin))
+        msg.append('Angle\t = {:.8e}'.expandtabs(6).format(
+                                                  self.principal_axis_angle))
         msg.append('')
         msg.append('[P_c] - Beam Stiffness Matrix at the Centroid')
         msg.append('---------------------------------------------')
@@ -220,7 +220,6 @@ class Section:
 
     def calculate_properties(self):
         """Calculates the section properties."""
-
         for mat in self.materials.values():
             mat.calculate_properties()
         for pt in self.points.values():
@@ -230,15 +229,12 @@ class Section:
             self.weight += seg.density*seg.bk*seg.t
             self.points[seg.point_a_id].adj_point_ids.add(seg.point_b_id)
             self.points[seg.point_b_id].adj_point_ids.add(seg.point_a_id)
-
         self._perform_section_checks()
-
         # Add the contribution of each segment (as open) to the beam
         # stiffness matrix.
         for seg in self.segments.values():
-            if type(self.materials[seg.material_id]) != ShearConnector:
-                self.p += (np.dot(np.transpose(seg.rk),
-                           np.dot(seg.wk_inv, seg.rk)))
+            self.p += (np.dot(np.transpose(seg.rk),
+                       np.dot(seg.wk_inv, seg.rk)))
         # Add the contributions from the booms
         for pt in self.points.values():
                 self.p[0, 0] += pt.EA
@@ -258,14 +254,12 @@ class Section:
             self._calculate_cell_contributions()
         else:
             self.w = np.linalg.inv(self.p)
-
         # Calculate the section centroid location
         tmp = np.dot(np.linalg.inv(np.array([[-self.w[1, 1], -self.w[1, 2]],
               [-self.w[1, 2], -self.w[2, 2]]])), np.array([[self.w[0, 1]],
               [self.w[0, 2]]]))
         self.yc = tmp[1,0]
         self.zc = tmp[0,0]
-
         # Calculate the section stiffness and compliance matrices w.r.t.
         # the centroid
         rb =  np.identity(4)
@@ -273,12 +267,10 @@ class Section:
         rb[2,0] = self.yc
         self.w_c = np.dot(np.transpose(rb), np.dot(self.w, rb))
         self.p_c = np.linalg.inv(self.w_c)
-
         # Calculate the principal axis angle theta
         self.principal_axis_angle = (0.5 *np.arctan(-2 * self.p_c[1,2] /
                                     (self.p_c[1,1]-self.p_c[2,2])))
         self.principal_axis_angle = math.degrees(self.principal_axis_angle)
-
         # Calculate and store the unitary internal loads
         self.u_Px, self.u_Px_pt = self._calc_unit_internal_loads(0)
         self.u_My, self.u_My_pt = self._calc_unit_internal_loads(1)
@@ -331,9 +323,12 @@ class Section:
             # The (2An*X1n) equation
             coef[2*n + 3, i] += 2*self.cells[cell_id].area
         coef[2*n:(2*n + 4), 2*n:(2*n + 4)] = self.p
-
+        # Add a small number to the diagonal to assure coef can be inverted
+        # (needed for sections with connectors only)
+        non_zero_diag = np.zeros_like(coef)
+        np.fill_diagonal(non_zero_diag, 1e-99)
+        coef+=non_zero_diag
         tmp_matrix = np.linalg.inv(coef)
-
         # Cycle load_i: unitary Px, then My, then Mz, then Tx
         #----------------------
         for load_i in range(4):
@@ -358,7 +353,6 @@ class Section:
                     Nxy_My_vect[1, 0] += f*cell.x[1, load_i]
                 Nx_Mx_Mxy_vector = np.dot(seg.vk, Nxy_My_vect)
                 seg.sk[:, load_i] = -Nx_Mx_Mxy_vector[:, 0]
-
         self.p = np.linalg.inv(self.w)
 
 
@@ -368,7 +362,6 @@ class Section:
         connectivity. Also calculates segment to cell interface factors and
         identifies cell cuts for shear calculations.
         """
-
         tmp_cell = Cell()
         cell_id = 1
         for pt_id, ipt in self.points.items():
@@ -410,7 +403,6 @@ class Section:
                             break
         if not self.cells:
             return
-
         # Calculate segment interface factors
         # Note that cell directions are counter-clockwise
         for seg_id, segment in self.segments.items():
@@ -433,7 +425,6 @@ class Section:
                         break
                     else:
                         segment.cell_factors[cell_id] = 0.0
-
         # Identify cell cuts for shear calculations
         cell_tmp_count = len(self.cells)
         while cell_tmp_count > 0:
@@ -510,7 +501,6 @@ class Section:
                             i_sg.point_a_id, sg.point_a_id, sg.point_b_id)
                             * _no_overlap(yd, zd, ya, za, yb, zb,
                             i_sg.point_b_id, sg.point_a_id, sg.point_b_id))
-
                     assert (bool_chk == 1), ("Segment {} partially overlaps "
                            "segment {}. Section segments cannot overlap each "
                            "other.").format(sg_id, i_sg_id)
@@ -535,7 +525,6 @@ class Section:
             Vy_s = 1.0
         elif unit_load == 5:
             Vz_s = 1.0
-
         # Create the Pandas dataframes that will store the unitary loads second
         # degree polynomial constants C2, C1, C0 in C2*N^2 + C1*N + C0
         col = pd.MultiIndex.from_product([['Nx','Nxy','Mx','My','Mxy'],
@@ -547,24 +536,21 @@ class Section:
         u_pts = pd.DataFrame(index=list(self.points.keys()),
                             columns=['Px', 'Tx'])
         u_pts.index.name = 'Point_Id'
-
         # Calculate section loads at the section origin
         origin_loads = np.array([Px_c, My + Px_c*self.zc, Mz + Px_c
                                  *self.yc, Tx])
         # Centroid loads
         ct_loads = np.array([Px_c, My, Mz, Tx])
-
         # Calculate section strains
         #origin_strains = np.dot(self.w, origin_loads)
         o_s_c_strs = list(np.dot(self.w_c, ct_loads))
-
         # Calculate point loads and strains
         #----------------------------------
         shear_const = self.p_c[1,1]*self.p_c[2,2] - self.p_c[1,2]**2
         pt_Nxy_contribution = {pt_id: 0.0 for pt_id in self.points.keys()}
         for p, (pt_id, pt) in enumerate(self.points.items()):
             o_pt_Px = 0.0
-            o_pt_Tx = 0.0            
+            o_pt_Tx = 0.0
             if pt.EA > 0:
                 o_pt_Px = (pt.EA*(o_s_c_strs[0] + o_s_c_strs[1]
                           *(pt.z-self.zc) + o_s_c_strs[2]*(pt.y-self.yc)))
@@ -572,7 +558,7 @@ class Section:
                               - self.p_c[1,2]*Vy_s)*pt.EA*(pt.z-self.zc)
                               - (self.p_c[1,1]*Vy_s - self.p_c[1,2]*Vz_s)
                               * pt.EA*(pt.y-self.yc))
-                pt_Nxy_contribution[pt_id] /= shear_const                
+                pt_Nxy_contribution[pt_id] /= shear_const
                 #o_pt_ex = o_pt_Px/pt.EA * 1000000.0
             if pt.GJ > 0:
                 o_pt_Tx  = pt.GJ * o_s_c_strs[3]
@@ -580,7 +566,6 @@ class Section:
             u_pts.loc[pt_id, 'Px'] = o_pt_Px
             u_pts.loc[pt_id, 'Tx'] = o_pt_Tx
         #----------------------------------
-
         # Calculate the segments loads
         #-----------------------------
         # Loads are recovered at three points (either linear or quadratic)
@@ -589,7 +574,6 @@ class Section:
         Mx_k = np.zeros((len(self.segments),3))
         My_k = np.zeros((len(self.segments),3))
         Mxy_k = np.zeros((len(self.segments),3))
-
         # And for the dNx/dx at the 3 recovery points + 2
         dqop = np.zeros((len(self.segments),5))
         for s, (sg_id, sg) in enumerate(self.segments.items()):
@@ -605,11 +589,9 @@ class Section:
                       * cell.x[1, 0] + origin_loads[1]*cell.x[1, 1]
                       + origin_loads[2]*cell.x[1, 2] + origin_loads[3]
                       * cell.x[1, 3])
-
             # Calculate Mx, My and Mxy
             # Contribution from the cells
             Nx_Mx_Mxy = np.dot(sg.uk_inv, np.dot(-1*sg.vk,Nxy_My))
-
             # Calculate loads at the 3 recovery points
             n = np.array([-0.5*sg.bk,0.0,+0.5*sg.bk])
             for r in range(3): # cycle the recovery points
@@ -625,7 +607,6 @@ class Section:
                 Mxy_k[s,r] = Nx_Mx_Mxy[2] + Nx_Mx_Mxy_recovery[2]
                 Nxy_k[s,r] = Nxy_My[0]
                 My_k[s,r] = Nxy_My[1]
-
                 # Shear flow calculations
                 if unit_load > 3:
                     # Setup the derivative vectors and matrix
@@ -638,13 +619,11 @@ class Section:
                     d = np.dot(d_a, d)
                     # dNx/dx at recovery point r:
                     dqop[s,r] = d[0]
-
         # Calculate contributions from Vy and Vz
         if unit_load > 3:
             Nxy_k, My_k = self._calculate_shear_contributions(
                     pt_Nxy_contribution, dqop, Nxy_k, My_k)
             self._calculate_shear_center(Nxy_k, unit_load)
-
         # Fill the segment unitary load dataframe
         x1 = 0.0
         x2 = 0.5
@@ -675,21 +654,20 @@ class Section:
                       x1, x2, x3, Mxy_k[s, 0], Mxy_k[s, 1], Mxy_k[s, 2])
             u_sgs.loc[sg_id,('Mxy','C1')] = b
             u_sgs.loc[sg_id,('Mxy','C0')] = c
-
         return u_sgs, u_pts
 
 
     def calculate_internal_loads(self):
         """
         Calculates internal loads for all load cases in the loads dictionary.
-		
+
         Results are loaded into two pandas dataframes: self.sgs_int_lds_df and
         self.pts_int_lds_df.
         Segment loads are represented as quadratic equations by outputting the
-        coefficients C2, C1 and C0, where Load = C2*n**2 + C1*n + C0. "n" is 
+        coefficients C2, C1 and C0, where Load = C2*n**2 + C1*n + C0. "n" is
         the location in the segment length varying from 0.0 (point A) to 1.0
         (point B). Maximum and minimum segment values and their associated
-        locations (0.0 - 1.0) inside the segment are also provided, along with 
+        locations (0.0 - 1.0) inside the segment are also provided, along with
         the segment average and total (integrated) load.
         """
         i_load = ['Nx','Nxy','Mx','My','Mxy']
@@ -697,8 +675,7 @@ class Section:
         sg_ids = []
         load_ids = []
         pt_load_ids = []
-        pt_df_lst = [] 
-        
+        pt_df_lst = []
         #r_dict = {'Segment_Id': [], 'Load_Id': []}
         for i_l in i_load:
             if i_l == 'Nxy':
@@ -713,7 +690,6 @@ class Section:
             r_dict[(i_l,'n_Min')] = []
             r_dict[(i_l,'Avg')] = []
             r_dict[(i_l,'Total')] = []
-
         for f_id, f in self.loads.items():
             # Bring all loads to the centroid and shear center
             Px_c = f.Px_c+f.Px
@@ -726,18 +702,11 @@ class Section:
             f_df = (self.u_Px[:]*Px_c + self.u_My[:]*My + self.u_Mz[:]*Mz
                      + self.u_Tx[:]*Tx + self.u_Vy[:]*Vy_s + self.u_Vz[:]*Vz_s)
             # Points dataframe for the load case
-            f_p_df = (self.u_Px_pt[:]*Px_c + self.u_My_pt[:]*My 
-                      + self.u_Mz_pt[:]*Mz + self.u_Tx_pt[:]*Tx 
+            f_p_df = (self.u_Px_pt[:]*Px_c + self.u_My_pt[:]*My
+                      + self.u_Mz_pt[:]*Mz + self.u_Tx_pt[:]*Tx
                       + self.u_Vy_pt[:]*Vy_s + self.u_Vz_pt[:]*Vz_s)
             pt_df_lst.append(f_p_df)
             pt_load_ids += len(self.points)*[f_id]
-            
-#             # Calculate section loads at the section origin
-#            origin_loads = np.array([Px_c, My + Px_c*self.zc, Mz + Px_c
-#                                     *self.yc, Tx])
-#            # Section loads at the centroid
-#            ct_loads = np.array([Px_c, My, Mz, Tx])
-
             for sg_id, sg in self.segments.items():
                 sg_ids.append(sg_id)
                 load_ids.append(f_id)
@@ -771,55 +740,52 @@ class Section:
                     total = a*sg.bk**3 / 3 + b*sg.bk**2 / 2 + c*sg.bk
                     avg = total/sg.bk
                     r_dict[(i_l,'Avg')].append(avg)
-                    r_dict[(i_l,'Total')].append(total)                
+                    r_dict[(i_l,'Total')].append(total)
         self.sgs_int_lds_df = pd.DataFrame(r_dict)
         self.sgs_int_lds_df.insert(0, 'Segment_Id', sg_ids)
         self.sgs_int_lds_df.insert(1, 'Load_Id', load_ids)
         self.pts_int_lds_df = pd.concat(pt_df_lst)
-        
         self.pts_int_lds_df.insert(0, 'Load_Id', pt_load_ids)
         self.pts_int_lds_df = self.pts_int_lds_df.reset_index()
 
 
     def print_internal_loads(self, break_columns=True):
         """
-        Prints to the console segment and point internal loads for all load 
+        Prints to the console segment and point internal loads for all load
         cases in the loads dictionary.
 
-        ..warning :: 
-        
-            This method outputs a significant amount of data per load 
-            case and segment. Depending on your number of segments and load 
-            cases, manipulate the data stored in self.sgs_int_lds_df and 
-            self.pts_int_lds_df using pandas methods directly.
+        Warning
+        -------
+        This method outputs a significant amount of data per load
+        case and segment. Depending on your number of segments and load
+        cases, manipulate the data stored in self.sgs_int_lds_df and
+        self.pts_int_lds_df using pandas methods directly.
 
         Parameters
         ----------
         break_columns : bool, default True
-            Of the form {int : abdbeam.Material}        
+            Of the form {int : abdbeam.Material}
         """
         print('')
         print('Internal Loads for Segments')
         print('---------------------------')
         print('')
         if break_columns:
-            with pd.option_context('display.max_rows', None, 
+            with pd.option_context('display.max_rows', None,
                                    'display.max_columns', None):
-                print(self.sgs_int_lds_df)                
+                print(self.sgs_int_lds_df)
         else:
-            print(self.sgs_int_lds_df.to_string()) 
-        print(self.pts_int_lds_df['Px'])
-        print(self.pts_int_lds_df['Tx'])        
-        if ((self.pts_int_lds_df['Px'] != 0).any() or 
-           (self.pts_int_lds_df['Tx'] != 0).any()):                        
+            print(self.sgs_int_lds_df.to_string())
+        if ((self.pts_int_lds_df['Px'] != 0).any() or
+           (self.pts_int_lds_df['Tx'] != 0).any()):
             print('')
             print('Internal Loads for Points')
             print('-------------------------')
             print('')
             if break_columns:
-                with pd.option_context('display.max_rows', None, 
+                with pd.option_context('display.max_rows', None,
                                        'display.max_columns', None):
-                    print(self.pts_int_lds_df)                
+                    print(self.pts_int_lds_df)
             else:
                 print(self.pts_int_lds_df.to_string())
 
@@ -937,11 +903,8 @@ class Section:
             vz = (zb-za)/sg.bk
             fy = v * vy
             fz = v * vz
-            #fy_sum += fy
-            #fz_sum += fz
             # Torsion at centroid
             Mx += arm_y * fz - arm_z * fy
-            # Mx_sum += Mx
         if unit_load == 4:
             self.zs = -Mx + self.zc
         elif unit_load == 5:
@@ -976,7 +939,11 @@ class Section:
                 # q_op
                 v[c] -= f*sg.fk[0,0] * Nxy_open_sgs[s]
                 v[c+ncells] -= f*sg.fk[1,0] * Nxy_open_sgs[s]
-
+        # Add a small number to the diagonal to assure m can be inverted
+        # (needed for sections with connectors only)
+        non_zero_diag = np.zeros_like(m)
+        np.fill_diagonal(non_zero_diag, 1e-99)
+        m += non_zero_diag
         tmp_m = np.dot(np.linalg.inv(m), v)
         for c, c_id in enumerate(self.cells.keys()):
            for s, (sg_id, sg) in enumerate(self.segments.items()):
@@ -1022,13 +989,13 @@ class Point:
         The axial stiffness of the point.
     GJ: float
         The torsional stiffness of the point.
-    description: string, default ''
-        The point description. 
-        
+    description: str
+        The point description.
+
     Examples
     --------
     Create two points and associate them to a section:
-        
+
     .. code-block:: python
 
         import abdbeam as ab
@@ -1044,7 +1011,7 @@ class Point:
     def __init__(self, y=0.0, z=0.0, EA=0.0, GJ=0.0, description=''):
         """
         Creates a Point instance.
-        
+
         Parameters
         ----------
         y: float, default 0.0
@@ -1055,10 +1022,9 @@ class Point:
             The axial stiffness of the point.
         GJ: float, default 0.0
             The torsional stiffness of the point.
-        description: string, default ''
-            The point description. 
+        description: str, default ''
+            The point description.
         """
-        
         self.y = y
         self.z = z
         self.EA = EA
@@ -1086,12 +1052,12 @@ class Segment:
         The material id of the segment.
     description : str
         The segment description.
-	bk : float
+    bk : float
         The segment length.
-	t : float
+    t : float
         The segment thickness (based on material data).
-		
-		
+
+
     Methods
     -------
     calculate_properties(points, materials)
@@ -1127,9 +1093,8 @@ class Segment:
         material_id : int
             The material id of the segment.
         description : str, default = ''
-            The segment description.     
-        """       
-        
+            The segment description.
+        """
         self.point_a_id = point_a_id
         self.point_b_id = point_b_id
         self.material_id = material_id
@@ -1154,26 +1119,24 @@ class Segment:
 
 
     def __repr__(self):
-        return ('{}({}, {}, {}, {})'.format(self.__class__.__name__, 
-                self.point_a_id, self.point_b_id, self.material_id, 
+        return ('{}({}, {}, {}, {})'.format(self.__class__.__name__,
+                self.point_a_id, self.point_b_id, self.material_id,
                 self.description))
 
 
     def calculate_properties(self, points, materials):
         """
         Calculates the segment properties.
-		
-		This method is normally called by a Section object.       
-        
+
+        This method is normally called by a Section object.
+
         Parameters
         ----------
         points :  dict
             Of the form {int : abdbeam.Point}.
         materials :  dict
-            Of the form {int : abdbeam.Material}.        
+            Of the form {int : abdbeam.Material}.
         """
-            
-            
         ya = points[self.point_a_id].y
         za = points[self.point_a_id].z
         yb = points[self.point_b_id].y
@@ -1193,9 +1156,6 @@ class Segment:
                             [0, cosalpha, -sinalpha, 0],
                             [0, sinalpha, cosalpha, 0],
                             [0, 0, 0, 1]])
-        if type(mat) == ShearConnector:
-            self.fk[0,0] = abd_c[2,2]
-            return
         aik =np.array([[abd_c[0,0], abd_c[0,3], abd_c[0,5]],
                        [abd_c[0,3], abd_c[3,3], abd_c[3,5]],
                        [abd_c[0,5], abd_c[3,5], abd_c[5,5]]])
@@ -1229,9 +1189,9 @@ class Segment:
 
 class Cell:
     """
-    Class instantiated internally by a abdbeam.Section object containing 
-    attributes and utilities related to a detected cell. 
-    
+    Class instantiated internally by a abdbeam.Section object containing
+    attributes and utilities related to a detected cell.
+
     Attributes
     ----------
     point_ids : list
@@ -1240,7 +1200,6 @@ class Cell:
         A list of segment ids associated to the cell. Of the form [int].
     area : float
         The cell area.
-    
     """
 
 
@@ -1287,19 +1246,23 @@ class Load:
     Attributes
     ----------
     Px_c : float
-        The axial load at the centroid of the cross section.
+        The axial load at the centroid of the cross section. Positive sign
+        induces tension in the cross section.
     My : float
-        The moment around the Y axis.
-    My : float
-        The moment around the Y axis.
+        The moment around the Y axis. Positive sign induces tension in the
+        positive yz quadrant of the beam cross section.
+    Mz : float
+        The moment around the Z axis. Positive sign induces tension in the
+        positive yz quadrant of the beam cross section.
     Tx : float
-        The torsion around the X axis.
+        The torque around the X axis. Positive sign is counterclockwise.
     Vy_s: float
         The shear force oriented with the Y axis at the shear center.
     Vz_s: float
         The shear force oriented with the section Z axis at the shear.
     Px: float
-        The axial force located at (yp, zp).
+        The axial force located at (yp, zp). Positive sign induces tension in
+        the cross section.
     yp: float
         The Y axis location of the Px axial force.
     zp: float
@@ -1322,13 +1285,13 @@ class Load:
         import abdbeam as ab
         sc = ab.Section()
         Lds = dict()
-        Lds[101] = ab.Load(1000.0,25000,-36000)
-        Lds[102] = ab.Load(15000.0)
+        Lds[101] = ab.Load(My=5e6)
+        Lds[102] = ab.Load(Tx=250000, Vz=5000.0)
         Lds[103] = ab.Load(0, 0, 0, 0, 0, 1000.0)
-        sc.loads = Lds        
+        sc.loads = Lds
     """
-	
-	
+
+
     def __init__(self, Px_c=0.0, My=0.0, Mz=0.0, Tx=0.0, Vy_s=0.0, Vz_s=0.0,
              Px=0.0, yp=0.0, zp=0.0, Vy=0.0, Vz=0.0, yv=0.0, zv=0.0):
         """
@@ -1337,33 +1300,36 @@ class Load:
         Attributes
         ----------
         Px_c : float, default 0.0
-            The axial load at the centroid of the cross section.
+            The axial load at the centroid of the cross section. Positive sign
+            induces tension in the cross section.
         My : float, default 0.0
-            The moment around the Y axis.
-        My : float, default 0.0
-            The moment around the Y axis.
+            The moment around the Y axis. Positive sign induces tension in the
+            positive yz quadrant of the beam cross section.
+        Mz : float, default 0.0
+            The moment around the Z axis. Positive sign induces tension in the
+            positive yz quadrant of the beam cross section.
         Tx : float, default 0.0
-            The torsion around the X axis.
+            The torque around the X axis. Positive sign is counterclockwise.
         Vy_s: float, default 0.0
             The shear force oriented with the Y axis at the shear center.
         Vz_s: float, default 0.0
             The shear force oriented with the section Z axis at the shear.
         Px: float, default 0.0
-            The axial force located at (yp, zp).
+            The axial force located at (yp, zp). Positive sign induces tension
+            in the cross section.
         yp: float, default 0.0
-            The Y axis location of the Px axial force
+            The Y axis location of the Px axial force.
         zp: float, default 0.0
-            The Z axis location of the Px axial force
+            The Z axis location of the Px axial force.
         Vy: float, default 0.0
-            The shear force oriented with the Y axis at zv
+            The shear force oriented with the Y axis at zv.
         Vz: float, default 0.0
-            The shear force oriented with the Z axis at yv
+            The shear force oriented with the Z axis at yv.
         yv: float, default 0.0
-            The Y axis location of the Vz shear force
+            The Y axis location of the Vz shear force.
         zv: float, default 0.0
-            The Z axis location of the Vy shear force     
+            The Z axis location of the Vy shear force.
         """
-		
         self.Px_c = Px_c
         self.My = My
         self.Mz = Mz
@@ -1376,15 +1342,15 @@ class Load:
         self.Vy = Vy
         self.Vz = Vz
         self.yv = yv
-        self.zv = zv        
-                
+        self.zv = zv
+
 
     def __repr__(self):
         return ('{}({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})'
-                .format(self.__class__.__name__, self.Px_c, self.My, self.Mz, 
-                self.Tx, self.Vy_s, self.Vz_s, self.Px, self.yp, self.zp, 
+                .format(self.__class__.__name__, self.Px_c, self.My, self.Mz,
+                self.Tx, self.Vy_s, self.Vz_s, self.Px, self.yp, self.zp,
                 self.Vy, self.Vz, self.yv, self.zv))
-        
+
 
 def _quadratic_poly_coef_from_3_values(x1, x2, x3, n1, n2, n3):
     """
@@ -1397,12 +1363,11 @@ def _quadratic_poly_coef_from_3_values(x1, x2, x3, n1, n2, n3):
         The positions of the values.
     n1, n2, n3 : float
         The values at positions x1, x2 and x3 respectively.
-    
+
     Returns
     -------
     a, b, c : float
         The coefficients.
-        
     """
     a = (((n2 - n1) * (x1 - x3) + (n3 - n1) * (x2 - x1)) /
         ((x1 - x3) * (x2**2 - x1**2) + (x2 - x1) * (x3**2 - x1**2)))

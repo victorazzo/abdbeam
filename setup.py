@@ -6,10 +6,11 @@ with open("README.md", "r") as fh:
 
 setup(
     name='abdbeam',
-    version='0.1.0',
-    description='A Python package for the cross section analysis of composite material beams of any shape.',
+    version='0.2.0',
+    description='Cross section analysis of composite material beams of any shape.',
     long_description=readme,
-    author='Danilo Victorazzo',
+    long_description_content_type='text/markdown'
+    author='Danilo S. Victorazzo',
     author_email='victorazzo@gmail.com',
     url='https://github.com/victorazzo/abdbeam',
     license='BSD-3',
@@ -20,6 +21,7 @@ setup(
         'Programming Language :: Python :: 3.6',
 		'Programming Language :: Python :: 3.7',
         "License :: OSI Approved :: BSD License",
+        "Topic :: Scientific/Engineering",
         "Operating System :: OS Independent",
     ],
 )
