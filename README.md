@@ -23,7 +23,7 @@ pip install abdbeam
 
 ## Source and Documentation
 
-The source code is hosted on GitHub at https://github.com/victorazzo/abdbeam and the documentation can be found at https://www.abdbeam.org.
+The source code is hosted on GitHub at https://github.com/victorazzo/abdbeam and the documentation can be found at https://abdbeam.org.
 
 ## Dependencies
 
