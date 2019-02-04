@@ -15,12 +15,13 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
+autodoc_mock_imports = ['numpy', 'matplotlib', 'pandas']
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'Abdbeam'
-copyright = '2019, Danilo Seixas Victorazzo'
+copyright = '2018-2019, Danilo Seixas Victorazzo'
 author = 'Danilo Seixas Victorazzo'
 
 # The short X.Y version
