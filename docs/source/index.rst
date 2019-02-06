@@ -19,6 +19,19 @@ These are a few things you can do with *Abdbeam*:
 * Obtain internal load distributions (Nx, Nxy, Mx, My, Mxy for segments; Px and Tx for booms) for a large number of cross section load cases (defined by Px, My, Mz, Tz, Vy and Vz section loads);
 * Plot cross sections, their properties and internal loads.
 
+Contents
+--------
+  
+.. toctree::
+   :maxdepth: 1
+
+   rst/installation
+   rst/creating_sections   
+   rst/examples
+   rst/theory
+   rst/api
+   rst/license
+
 Source Code
 -----------
 
@@ -162,21 +175,7 @@ Finally, plot Nx and Nxy for load case 101 (we'll change the matplotlib contour 
 .. [1] Booms are discrete stiffeners containing axial and torsional stiffnesses.
 .. [2] `Victorazzo DS, De Jesus A. A Kollár and Pluzsik anisotropic composite beam theory for arbitrary multicelled cross sections. Journal of Reinforced Plastics and Composites. 2016 Dec;35(23):1696-711. <https://journals.sagepub.com/doi/abs/10.1177/0731684416665493>`_
 
-Contents
---------
   
-.. toctree::
-   :maxdepth: 1
-
-   rst/installation
-   rst/creating_sections   
-   rst/examples
-   rst/theory
-   rst/api
-   rst/license
-   
-   
-   
 Indices and tables
 ------------------
 
