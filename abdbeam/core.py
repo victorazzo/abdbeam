@@ -1179,8 +1179,8 @@ class Segment:
         self.fk = (m_tmp_2 -1 * np.dot(m_tmp, np.dot(self.wk_inv,
                    np.transpose(m_tmp))))
         uk =np.array([[abd_c[0,0], abd_c[0,3], abd_c[0,5]],
-                      [abd_c[0,1], abd_c[3,3], abd_c[3,5]],
-                      [abd_c[0,2], abd_c[1,2], abd_c[5,5]]])
+                      [abd_c[0,3], abd_c[3,3], abd_c[3,5]],
+                      [abd_c[0,5], abd_c[3,5], abd_c[5,5]]])
         self.uk_inv = np.linalg.inv(uk)
         self.vk = np.array([[abd_c[0,2], abd_c[0,4]],
                        [abd_c[0,5], abd_c[3,4]],
