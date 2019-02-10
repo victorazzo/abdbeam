@@ -374,6 +374,7 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
             diagram_factor_list=[], filter_sgs=[], plot_sgs=[],
             no_result_sgs=[], result_sgs=[], contour_levels=10):
     sc = section
+    nl = ['Nxy', 'ex_o', 'ey_o', 'gxy_o', 'kx','ky', 'kxy']
     include_sgs = []
     if result_sgs and plot_sgs:
         include_sgs = _intersect(plot_sgs,result_sgs)
@@ -441,7 +442,7 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
                  linewidth=1, transform=(rot+base), alpha=0.0)
         # Extract the second degree terms:
         a = 0
-        if load == 'Nxy':
+        if load in nl:
             a = df.iloc[0][(load, 'C2')]
         b = df.iloc[0][(load, 'C1')]
         c = df.iloc[0][(load, 'C0')]
