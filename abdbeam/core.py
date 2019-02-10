@@ -527,14 +527,16 @@ class Section:
             Vz_s = 1.0
         # Create the Pandas dataframes that will store the unitary loads second
         # degree polynomial constants C2, C1, C0 in C2*N^2 + C1*N + C0
-        col = pd.MultiIndex.from_product([['Nx','Nxy','Mx','My','Mxy'],
-                                          ['C2','C1','C0']])
+        col = pd.MultiIndex.from_product([['Nx','Nxy','Mx','My','Mxy','ex_o',
+                                           'ey_o','gxy_o','kx','ky','kxy'],
+                                           ['C2','C1','C0']])
         u_sgs = pd.DataFrame(index=list(self.segments.keys()),columns=col)
+        # Drop the C2 columns from the known linear results:
         u_sgs.drop(u_sgs.columns[[0,6,9,12]], axis=1, inplace=True)
         u_sgs.index.name = 'Segment_Id'
         u_sgs[:] = 0.0
         u_pts = pd.DataFrame(index=list(self.points.keys()),
-                            columns=['Px', 'Tx'])
+                            columns=['Px', 'Tx', 'ex', 'v'])
         u_pts.index.name = 'Point_Id'
         # Calculate section loads at the section origin
         origin_loads = np.array([Px_c, My + Px_c*self.zc, Mz + Px_c
@@ -595,8 +597,8 @@ class Section:
             # Calculate loads at the 3 recovery points
             n = np.array([-0.5*sg.bk,0.0,+0.5*sg.bk])
             for r in range(3): # cycle the recovery points
-                rn = np.array([[1.0, 0.0, n[r], 0.0], \
-                               [0.0, 1.0, 0.0, 0.0],\
+                rn = np.array([[1.0, 0.0, n[r], 0.0],
+                               [0.0, 1.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, -2.0]])
                 Nx_Mx_Mxy_recovery = np.dot(
                     np.dot(np.dot(sg.uk_inv,np.dot(rn,sg.rk)),self.w),
@@ -654,7 +656,37 @@ class Section:
                       x1, x2, x3, Mxy_k[s, 0], Mxy_k[s, 1], Mxy_k[s, 2])
             u_sgs.loc[sg_id,('Mxy','C1')] = b
             u_sgs.loc[sg_id,('Mxy','C0')] = c
+
+            u_sgs = self._calculate_segment_strains(sg_id, u_sgs)
+
         return u_sgs, u_pts
+
+
+    def _calculate_segment_strains(self, sg_id, u_sgs):
+        ''' Calculates the unitary load strains for a segment'''
+        mat_id = self.segments[sg_id].material_id
+        abd_c = self.materials[mat_id].abd_c
+        n_list = [0, 0.5, 1]
+        result_list = ['ex_o', 'ey_o', 'gxy_o', 'kx', 'ky', 'kxy']
+        str_vec = {}
+        for n in n_list:
+            Nx = u_sgs.loc[sg_id,('Nx','C1')]*n + u_sgs.loc[sg_id,('Nx','C0')]
+            Nxy = (u_sgs.loc[sg_id,('Nxy','C2')] * n**2 +
+                   u_sgs.loc[sg_id,('Nxy','C1')]*n +
+                   u_sgs.loc[sg_id,('Nxy','C0')])
+            Mx = u_sgs.loc[sg_id,('Mx','C1')]*n + u_sgs.loc[sg_id,('Mx','C0')]
+            My = u_sgs.loc[sg_id,('My','C1')]*n + u_sgs.loc[sg_id,('My','C0')]
+            Mxy = (u_sgs.loc[sg_id,('Mxy','C1')]*n +
+                   u_sgs.loc[sg_id,('Mxy','C0')])
+            n_m_vec = np.array([[Nx], [0.0], [Nxy], [Mx], [My], [Mxy]])
+            str_vec[n] = 1e6*np.dot(abd_c, n_m_vec)
+        for i, r in zip(range(6), result_list):
+            a, b, c = _quadratic_poly_coef_from_3_values(
+                  0, 0.5, 1.0, str_vec[0][i], str_vec[0.5][i], str_vec[1][i])
+            u_sgs.loc[sg_id,(r,'C2')] = a
+            u_sgs.loc[sg_id,(r,'C1')] = b
+            u_sgs.loc[sg_id,(r,'C0')] = c
+        return u_sgs
 
 
     def calculate_internal_loads(self):
@@ -670,7 +702,9 @@ class Section:
         locations (0.0 - 1.0) inside the segment are also provided, along with
         the segment average and total (integrated) load.
         """
-        i_load = ['Nx','Nxy','Mx','My','Mxy']
+        strains = ['ex_o', 'ey_o', 'gxy_o', 'kx','ky', 'kxy']
+        i_load = ['Nx','Nxy','Mx','My','Mxy'] + strains
+        nl_i_loads = ['Nxy'] + strains
         r_dict={}
         sg_ids = []
         load_ids = []
@@ -678,7 +712,7 @@ class Section:
         pt_df_lst = []
         #r_dict = {'Segment_Id': [], 'Load_Id': []}
         for i_l in i_load:
-            if i_l == 'Nxy':
+            if i_l in nl_i_loads:
                 r_dict[(i_l,'C2')] = []
             r_dict[(i_l,'C1')] = []
             r_dict[(i_l,'C0')] = []
@@ -688,8 +722,9 @@ class Section:
             r_dict[(i_l,'n_Max')] = []
             r_dict[(i_l,'Min')] = []
             r_dict[(i_l,'n_Min')] = []
-            r_dict[(i_l,'Avg')] = []
-            r_dict[(i_l,'Total')] = []
+            if i_l not in strains:
+                r_dict[(i_l,'Avg')] = []
+                r_dict[(i_l,'Total')] = []
         for f_id, f in self.loads.items():
             # Bring all loads to the centroid and shear center
             Px_c = f.Px_c+f.Px
@@ -711,7 +746,7 @@ class Section:
                 sg_ids.append(sg_id)
                 load_ids.append(f_id)
                 for i_l in i_load:
-                    if i_l == 'Nxy':
+                    if i_l in nl_i_loads:
                         a = f_df.loc[sg_id,(i_l,'C2')]
                         r_dict[(i_l,'C2')].append(a)
                     else:
@@ -729,18 +764,19 @@ class Section:
                     r_dict[(i_l,'n_Max')].append(n_max)
                     r_dict[(i_l,'Min')].append(min_)
                     r_dict[(i_l,'n_Min')].append(n_min)
-                    x1 = 0
-                    x2 = 0.5 * sg.bk
-                    x3 = sg.bk
-                    v1 = c
-                    v2 = a*0.25 + b*0.5 + c
-                    v3 = a+b+c
-                    a, b, c = _quadratic_poly_coef_from_3_values(
-                              x1, x2, x3, v1, v2, v3)
-                    total = a*sg.bk**3 / 3 + b*sg.bk**2 / 2 + c*sg.bk
-                    avg = total/sg.bk
-                    r_dict[(i_l,'Avg')].append(avg)
-                    r_dict[(i_l,'Total')].append(total)
+                    if i_l not in strains:
+                        x1 = 0
+                        x2 = 0.5 * sg.bk
+                        x3 = sg.bk
+                        v1 = c
+                        v2 = a*0.25 + b*0.5 + c
+                        v3 = a+b+c
+                        a, b, c = _quadratic_poly_coef_from_3_values(
+                                  x1, x2, x3, v1, v2, v3)
+                        total = a*sg.bk**3 / 3 + b*sg.bk**2 / 2 + c*sg.bk
+                        avg = total/sg.bk
+                        r_dict[(i_l,'Avg')].append(avg)
+                        r_dict[(i_l,'Total')].append(total)
         self.sgs_int_lds_df = pd.DataFrame(r_dict)
         self.sgs_int_lds_df.insert(0, 'Segment_Id', sg_ids)
         self.sgs_int_lds_df.insert(1, 'Load_Id', load_ids)
@@ -1179,8 +1215,8 @@ class Segment:
         self.fk = (m_tmp_2 -1 * np.dot(m_tmp, np.dot(self.wk_inv,
                    np.transpose(m_tmp))))
         uk =np.array([[abd_c[0,0], abd_c[0,3], abd_c[0,5]],
-                      [abd_c[0,1], abd_c[3,3], abd_c[3,5]],
-                      [abd_c[0,2], abd_c[1,2], abd_c[5,5]]])
+                      [abd_c[0,3], abd_c[3,3], abd_c[3,5]],
+                      [abd_c[0,5], abd_c[3,5], abd_c[5,5]]])
         self.uk_inv = np.linalg.inv(uk)
         self.vk = np.array([[abd_c[0,2], abd_c[0,4]],
                        [abd_c[0,5], abd_c[3,4]],
