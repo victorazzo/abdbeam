@@ -4,14 +4,14 @@ Installation
 Windows and UNIX (MacOS/Linux)
 ------------------------------
 
-*Abdbeam* is installed with all its dependencies using PyPI (`Python package index <https://pypi.org/project/abdbeam>`_):::
+*Abdbeam* is installed using PyPI (`Python package index <https://pypi.org/project/abdbeam>`_):::
     
     pip install abdbeam
 
 Dependencies
 ------------
 
-Dependecies are taken care by the PyPI intallation and are listed here for reference purposes only:
+The following external packages are required to run *Abdbeam*:
 
 - `Numpy <https://www.numpy.org>`_
 - `Pandas <https://pandas.pydata.org>`_

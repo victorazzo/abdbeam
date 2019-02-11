@@ -91,8 +91,8 @@ zc     = 0.00000000e+00
 
 Shear Center
 ------------
-ys     = -1.59091432e-01
-zs     = -5.86419365e-04
+ys     = 2.35301214e-03
+zs     = -1.45758049e-03
 
 Replacement Stiffnesses
 -----------------------
@@ -165,7 +165,7 @@ Finally, plot Nx and Nxy for load case 101 (we'll change the matplotlib contour 
 ab.plot_section_loads(sc, 101, contour_color='viridis', diagram_scale=0.7, 
                       int_load_list=['Nx', 'Nxy'], figsize=(5.12, 3.84))
 ```
-![Abdbeam Plot Loads Example](https://user-images.githubusercontent.com/24232637/51790027-feadf800-215d-11e9-8ba8-d7e444484eb8.png)
+![Abdbeam Plot Loads Example](https://user-images.githubusercontent.com/24232637/52542062-0a0e3f80-2d6a-11e9-8f17-323d5186180b.png)
 
 ## License
 

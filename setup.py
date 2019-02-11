@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='abdbeam',
-    version='0.2.0',
+    version='0.2.1',
     description='Cross section analysis of composite material beams of any shape.',
     long_description=readme,
     long_description_content_type='text/markdown',

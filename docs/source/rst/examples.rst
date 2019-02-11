@@ -257,8 +257,8 @@ Which prints:
 
     Shear Center
     ------------
-    ys     = -8.67361738e-19
-    zs     = -3.46944695e-19
+    ys     = 0.00000000e+00
+    zs     = -6.93889390e-19
 
     Replacement Stiffnesses
     -----------------------
@@ -493,7 +493,6 @@ First we create the cross section, calculate is properties and plot it::
     sc.segments = sgs
     # Calculate section properties
     sc.calculate_properties()
-    sc.summary()
     # Plot the section
     ab.plot_section(sc, pt_size=2, title='Abdbeam - Torque-box Example',
                     figsize=(6.4*1.5, 4.8*1.5))
