@@ -99,8 +99,8 @@ Which prints:
 
     Shear Center
     ------------
-    ys     = -1.59091432e-01
-    zs     = -5.86419365e-04
+    ys     = 2.35301214e-03
+    zs     = -1.45758049e-03
 
     Replacement Stiffnesses
     -----------------------
@@ -156,7 +156,7 @@ Or access the Pandas dataframe containing these internal loads directly::
 
     df = sc.sgs_int_lds_df
 
-Next plot the cross section and its properties (we'll show the segment orientations, hide legends, change the centroid , shear center and principal axis colors and use a custom figure size)::
+Next plot the cross section and its properties (we'll show the segment orientations, hide legends, change the centroid, shear center and principal axis colors and use a custom figure size)::
 
     ab.plot_section(sc, segment_coord=True, title='Abdbeam - Example', 
                     legend=False, prop_color='#471365', figsize=(5.12, 3.84))

@@ -75,7 +75,6 @@ sc.points = pts
 sc.segments = sgs
 # Calculate section properties
 sc.calculate_properties()
-sc.summary()
 # Plot the section
 ab.plot_section(sc, pt_size=2, title='Abdbeam - Torque-box Example',
                 figsize=(6.4*1.5, 4.8*1.5))
