@@ -391,8 +391,8 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
         dff = sc.sgs_int_lds_df[(sc.sgs_int_lds_df['Load_Id']==load_id) &
                     (~sc.sgs_int_lds_df['Segment_Id'].isin(exclude_sgs))]
     # Set the gradient levels
-    max_load = dff[(load, 'Max')].max()
-    min_load = dff[(load, 'Min')].min()
+    max_load = 1.000001*dff[(load, 'Max')].max()
+    min_load = 1.000001*dff[(load, 'Min')].min()
     max_abs_load = max(abs(max_load), abs(min_load))
     if max_load<min_load or (max_load == 0 and min_load == 0):
         levels=[-1e-99, +1e-99]
