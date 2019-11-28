@@ -9,6 +9,8 @@ from matplotlib.patches import Polygon
 import math
 import numpy as np
 from abdbeam.core import _clockwise_angle_from_3_points
+import warnings
+
 
 def plot_section(section, segment_coord=False, thickness=True, mid_plane=True,
                  top_bottom=False, centroid=True, shear_center=True,
@@ -100,7 +102,8 @@ def plot_section(section, segment_coord=False, thickness=True, mid_plane=True,
     fig, axs = plt.subplots(1, 1, squeeze=False)
     _plot_section_to_ax(section, axs[0,0], segment_coord, thickness, mid_plane,
                 top_bottom, centroid, shear_center, origin, princ_dir,
-                show_axis, prop_color, pt_size, filter_sgs, plot_sgs, legend, title)
+                show_axis, prop_color, pt_size, filter_sgs, plot_sgs, legend,
+                title)
     fig.set_size_inches(figsize)
     fig.set_dpi(dpi)
     plt.ion()
@@ -217,15 +220,37 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
             plot_sgs=[], no_result_sgs=[], result_sgs=[],
             figsize=(6.4, 4.8), dpi=80):
     """
-    Uses matplotlib to plot the internal loads associated to a section and load
-    case id.
+    Deprecated method. Use plot_section_results method instead.
+    """
+    msg = "".join((
+            "The 'plot_section_loads' method is deprecated in favor of",
+            " 'plot_section_results'.\n",
+            "Backward compatibility will be droped in package version 2."))
+    warnings.warn(msg, DeprecationWarning, stacklevel=2)
+    plot_section_results(section, load_id, int_load_list,
+                title_list, thickness, pt_size, segment_contour, diagram,
+                diagram_contour, diagram_alpha, diagram_scale,
+                diagram_factor_list, contour_color, contour_levels, filter_sgs,
+                plot_sgs, no_result_sgs, result_sgs, figsize, dpi)
+
+
+def plot_section_results(section, load_id, result_list=['Nx', 'Nxy', 'Mx',
+            'My', 'Mxy'], title_list=[], thickness=True, pt_size=4,
+            segment_contour=True, diagram=True, diagram_contour=False,
+            diagram_alpha=0.15, diagram_scale=1.0, diagram_factor_list=[],
+            contour_color='jet_r', contour_levels=10, filter_sgs=[],
+            plot_sgs=[], no_result_sgs=[], result_sgs=[],
+            figsize=(6.4, 4.8), dpi=80):
+    """
+    Uses matplotlib to plot the results associated to a section and load case
+    id.
 
     Note
     ----
-    Internal loads need to be calculated using the method
-    abdbeam.Section.calculate_internal_loads() before using this function;
-    If two or more internal loads are plotted, the plots will be presented in
-    two columns; figure sizes are for individual plots and not the entire
+    Internal loads and strains need to be calculated using the method
+    abdbeam.Section.calculate_results() before using this function;
+    If two or more results are plotted, the plots will be presented in two
+    columns; figure sizes are for individual plots and not the entire
     figure.
 
     Parameters
@@ -234,12 +259,14 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
         The section object to be plotted.
     load_id : int
         The load case id key in the abdbeam.Section.loads dictionary.
-    int_load_list : list, default ['Nx', 'Nxy', 'Mx', 'My','Mxy']
-        The internal load type list to be plotted for the selected load case.
+    result_list : list, default ['Nx', 'Nxy', 'Mx', 'My','Mxy']
+        The segment internal loads and/or strains list to be plotted for the
+        selected load case. Options are: 'Nx', 'Nxy', 'Mx', 'My','Mxy','ex_o',
+        'ey_o', 'gxy_o', 'kx','ky','kxy'.
     title_list : list, default []
         A list containing all the plot titles to be added. An empty list (the
-        default) will use the list int_load_list as titles. If the length of
-        this list is smaller than int_load_list's length, None values will be
+        default) will use the list result_list as titles. If the length of
+        this list is smaller than result_list's length, None values will be
         assumed for the last items.
     thickness : bool, default True
         If True, will plot the segments thickness.
@@ -250,7 +277,7 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
         If True, will plot the internal load contour inside a segment
         thickness.
     diagram : bool, default True
-        If True, will plot internal load diagrams at each segment. Positive
+        If True, will plot result diagrams at each segment. Positive
         values are plotted towards the segment top side and negative towards
         the bottom side.
     diagram_contour: bool, default False
@@ -287,9 +314,9 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
         plotted. Of the form [int]. If left empty will plot contours for all
         segments. Will also respect the result_sgs.
     figsize : tuple, default (6.4, 4.8)
-        Width and height of each internal load in inches. Of the form (float,
+        Width and height of each result plot in inches. Of the form (float,
         float). Note that this is not the size of the entire matplotlib figure,
-        but the size of each internal load plot.
+        but the size of each result plot.
     dpi : integer, default 100
         The resolution of the figure.
 
@@ -321,23 +348,42 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
         Lds = dict()
         Lds[100] = ab.Load(Vz_s=150)
         sc.loads = Lds
-        sc.calculate_internal_loads()
-        ab.plot_section_loads(sc, 100, int_load_list=['Nxy'])
+        sc.calculate_results()
+        ab.plot_section_results(sc, 100, result_list=['Nxy'])
     """
     sc = section
-    title_list = title_list[:len(int_load_list)]
-    title_list = title_list + (len(int_load_list) - len(title_list))*[None]
-    if len(int_load_list)>1:
-        rows = (len(int_load_list) - 1)//2 + 1
+    title_list = title_list[:len(result_list)]
+    title_list = title_list + (len(result_list) - len(title_list))*[None]
+    # Check if the result exists in the pandas dataframe, removing it otherwise
+    chkd_result_list = []
+    chkd_title_list = []
+    for result, title in zip(result_list, title_list):
+        if result not in sc.sgs_results_df.columns:
+            msg = ("No result " + result + " calculated for the section. "
+                   + "Skipping...")
+            warnings.warn(msg, UserWarning, stacklevel=2)
+        else:
+            chkd_result_list.append(result)
+            chkd_title_list.append(title)
+    result_list = chkd_result_list
+    title_list = chkd_title_list
+
+    if len(result_list)>1:
+        rows = (len(result_list) - 1)//2 + 1
         fig, axs = plt.subplots(rows, 2, squeeze=False)
         figsize = (figsize[0]*2, figsize[1]*rows)
-    else:
+    elif len(result_list)==1:
         fig, axs = plt.subplots(1, 1, squeeze=False)
     col = 0
-    for i, load, title in zip(range(0, len(int_load_list)), int_load_list,
+    for i, result, title in zip(range(0, len(result_list)), result_list,
                               title_list):
+        if result not in sc.sgs_results_df.columns:
+            msg = ("No result " + result + " calculated for the section. "
+                   + "Skipping...")
+            warnings.warn(msg, UserWarning, stacklevel=2)
+            continue
         if title==None:
-            fig_title = '{}'.format(load)
+            fig_title = '{}'.format(result)
         else:
             fig_title = title
         _plot_section_to_ax(sc, axs[i//2, col], segment_coord=False,
@@ -347,7 +393,7 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
                 filter_sgs=filter_sgs, plot_sgs=plot_sgs, legend=False,
                 title=fig_title)
         axs[i//2, col].autoscale()
-        _plot_internal_load_curves(sc, fig, axs[i//2, col], load_id, load,
+        _plot_result_curves(sc, fig, axs[i//2, col], load_id, result,
                 thickness=thickness, segment_contour=segment_contour,
                 diagram=diagram, diagram_contour=diagram_contour,
                 diagram_alpha=diagram_alpha, contour_color=contour_color,
@@ -356,25 +402,25 @@ def plot_section_loads(section, load_id, int_load_list=['Nx', 'Nxy', 'Mx',
                 plot_sgs= plot_sgs, no_result_sgs=no_result_sgs,
                 result_sgs=result_sgs)
         col = 1-col
-    axs[-1,-1].axis('off')
-    if figsize != None:
-        fig.set_size_inches(figsize)
-    if dpi != None:
-        fig.set_dpi(dpi)
-    plt.tight_layout()
-    if len(int_load_list) > 1:
-        plt.subplots_adjust(top=0.85)
-    plt.ion()
-    plt.show()
+    if len(result_list)>=1:
+        axs[-1,-1].axis('off')
+        if figsize != None:
+            fig.set_size_inches(figsize)
+        if dpi != None:
+            fig.set_dpi(dpi)
+        plt.tight_layout()
+        if len(result_list) > 1:
+            plt.subplots_adjust(top=0.85)
+        plt.ion()
+        plt.show()
 
 
-def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
+def _plot_result_curves(section, fig, ax, load_id, result, thickness=True,
             segment_contour=True, diagram=True, diagram_contour=False,
             diagram_alpha=0.15, contour_color='jet_r', diagram_scale=1.0,
             diagram_factor_list=[], filter_sgs=[], plot_sgs=[],
             no_result_sgs=[], result_sgs=[], contour_levels=10):
     sc = section
-    nl = ['Nxy', 'ex_o', 'ey_o', 'gxy_o', 'kx','ky', 'kxy']
     include_sgs = []
     if result_sgs and plot_sgs:
         include_sgs = _intersect(plot_sgs,result_sgs)
@@ -384,15 +430,15 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
         include_sgs = plot_sgs
     exclude_sgs = _union(no_result_sgs, filter_sgs)
     if include_sgs:
-        dff = sc.sgs_int_lds_df[(sc.sgs_int_lds_df['Load_Id']==load_id) &
-                    (~sc.sgs_int_lds_df['Segment_Id'].isin(exclude_sgs)) &
-                    (sc.sgs_int_lds_df['Segment_Id'].isin(include_sgs))]
+        dff = sc.sgs_results_df[(sc.sgs_results_df['Load_Id']==load_id) &
+                    (~sc.sgs_results_df['Segment_Id'].isin(exclude_sgs)) &
+                    (sc.sgs_results_df['Segment_Id'].isin(include_sgs))]
     else:
-        dff = sc.sgs_int_lds_df[(sc.sgs_int_lds_df['Load_Id']==load_id) &
-                    (~sc.sgs_int_lds_df['Segment_Id'].isin(exclude_sgs))]
+        dff = sc.sgs_results_df[(sc.sgs_results_df['Load_Id']==load_id) &
+                    (~sc.sgs_results_df['Segment_Id'].isin(exclude_sgs))]
     # Set the gradient levels
-    max_load = 1.000001*dff[(load, 'Max')].max()
-    min_load = 1.000001*dff[(load, 'Min')].min()
+    max_load = dff[(result, 'Max')].max()
+    min_load = dff[(result, 'Min')].min()
     max_abs_load = max(abs(max_load), abs(min_load))
     if max_load<min_load or (max_load == 0 and min_load == 0):
         levels=[-1e-99, +1e-99]
@@ -400,16 +446,16 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
         if math.isclose(max_load, 0, rel_tol=1e-8):
             levels = [-1e-99, +1e-99]
         elif max_load > 0:
-            levels = np.linspace(0, max_load,contour_levels+1).tolist()
+            levels = np.linspace(0, max_load, contour_levels+1).tolist()
         elif max_load < 0:
-            levels = np.linspace(max_load, 0, contour_levels+1).tolist()
+            levels = np.linspace(min_load, 0, contour_levels+1).tolist()
     else:
         levels = np.linspace(min_load, max_load, contour_levels+1).tolist()
     # Format the diagram factor list
     diagram_factor_list = diagram_factor_list[:len(sc.segments)]
     diagram_factor_list = diagram_factor_list + (len(sc.segments)
                           - len(diagram_factor_list))*[1.0]
-    # Calculate load value to diagram units ratio
+    # Calculate result value to diagram units ratio
     # This expects only a section plot with no properties
     x0, y0, width, height = ax.dataLim.bounds
     dgm_max = max(width, height)*0.20*diagram_scale
@@ -432,8 +478,8 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
         base = ax.transData
         rot = transforms.Affine2D().rotate_deg_around(ya, za, angle)
         #Filter the results dataframe:
-        df = sc.sgs_int_lds_df[(sc.sgs_int_lds_df['Segment_Id']==sg_id) &
-                               (sc.sgs_int_lds_df['Load_Id']==load_id)]
+        df = sc.sgs_results_df[(sc.sgs_results_df['Segment_Id']==sg_id) &
+                               (sc.sgs_results_df['Load_Id']==load_id)]
         # Transparent bounding box for plot auto-size consistency between
         # diagrams. To do: account for colorbar auto-sizing
         y = np.array([0, 0, sg.bk, sg.bk])
@@ -442,10 +488,10 @@ def _plot_internal_load_curves(section, fig, ax, load_id, load, thickness=True,
                  linewidth=1, transform=(rot+base), alpha=0.0)
         # Extract the second degree terms:
         a = 0
-        if load in nl:
-            a = df.iloc[0][(load, 'C2')]
-        b = df.iloc[0][(load, 'C1')]
-        c = df.iloc[0][(load, 'C0')]
+        if (result, 'C2') in df.columns:
+            a = df.iloc[0][(result, 'C2')]
+        b = df.iloc[0][(result, 'C1')]
+        c = df.iloc[0][(result, 'C0')]
         # Do the contour inside the thickness
         if segment_contour:
             if thickness:
