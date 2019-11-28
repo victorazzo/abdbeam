@@ -38,10 +38,10 @@ sc.calculate_properties()
 ab.plot_section(sc, segment_coord=True, title='Abdbeam - Megson Example')
 #Create load case and calculate its internal loads:
 sc.loads[1] = ab.Load(Vz_s=100000)
-sc.calculate_internal_loads()
-ab.plot_section_loads(sc, 1, segment_contour=False, diagram=True,
-                       diagram_contour=True, diagram_alpha=1.0,
-                       contour_levels=20, contour_color='coolwarm',
-                      diagram_factor_list=[1,1,-1,-1,1,-1,-1,1,1,-1],
-                      thickness=False, int_load_list=['Nxy'],
-                      title_list=['Nxy (N/mm)'])
+sc.calculate_results()
+ab.plot_section_results(sc, 1, segment_contour=False, diagram=True,
+                        diagram_contour=True, diagram_alpha=1.0,
+                        contour_levels=20, contour_color='coolwarm',
+                        diagram_factor_list=[1,1,-1,-1,1,-1,-1,1,1,-1],
+                        thickness=False, result_list=['Nxy'],
+                        title_list=['Nxy (N/mm)'])

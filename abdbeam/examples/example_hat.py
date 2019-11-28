@@ -60,8 +60,8 @@ ab.plot_section(sc, filter_sgs=[91,92,93,94], title='Abdbeam - Hat Example',
 # Create load cases and calculate their internal loads
 sc.loads[1] = ab.Load(My=100, Vy_s=1000)
 sc.loads[2] = ab.Load(Tx=100)
-sc.calculate_internal_loads()
+sc.calculate_results()
 # Plot internal loads
-ab.plot_section_loads(sc, 1, contour_color = 'viridis',
+ab.plot_section_results(sc, 1, contour_color = 'viridis',
                       result_sgs=[10,11,12,13,14], figsize=(6.4*0.8, 4.8*0.8),
                       diagram_scale=0.5, filter_sgs=[91,92,93,94])

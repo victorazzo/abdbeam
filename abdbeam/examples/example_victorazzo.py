@@ -35,12 +35,12 @@ sc.summary()
 sc.loads = dict()
 sc.loads[101] = ab.Load(My=5e6)
 sc.loads[102] = ab.Load(Tx=250000, Vz=5000.0)
-sc.calculate_internal_loads()
+sc.calculate_results()
 # Access Pandas dataframe with internal loads
 df = sc.sgs_int_lds_df
 # Plot the section and its properties
 ab.plot_section(sc, segment_coord=True, title='Abdbeam - Example',
                 legend=False, prop_color='#471365', figsize=(5.12, 3.84))
 # Plot Nx and Nxy internal loads for case 101
-ab.plot_section_loads(sc, 101, contour_color='viridis', diagram_scale=0.7,
-                      int_load_list=['Nx', 'Nxy'], figsize=(5.12, 3.84))
+ab.plot_section_results(sc, 101, contour_color='viridis', diagram_scale=0.7,
+                        result_list=['Nx', 'Nxy'], figsize=(5.12, 3.84))

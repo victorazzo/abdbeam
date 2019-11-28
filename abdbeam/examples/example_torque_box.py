@@ -86,7 +86,7 @@ sc.loads[10] = ab.Load(Px=-7458,My=-15571,Mz=-96370,Tx=-3615,Vy=564,Vz=-369)
 sc.loads[2] = ab.Load(Px=1000,My=-30865,Mz=180498,Tx=11653,Vy=-7001,Vz=-189)
 sc.loads[3] = ab.Load(Px=-281,My=133314,Mz=-123966,Tx=324,Vy=9389,Vz=-1514)
 sc.loads[6] = ab.Load(Px=299,My=40658,Mz=101677,Tx=7102,Vy=9214,Vz=-3545)
-sc.calculate_internal_loads()
+sc.calculate_results()
 # Use Pandas methods to get info on the critical spar compressive Nx
 df = sc.sgs_int_lds_df
 spar_sgs = range(31,40)
@@ -98,7 +98,7 @@ min_lc = int(df.loc[idx, 'Load_Id'])
 print(('Minimum rear spar Nx is {}, from segment {}, load case {}'
        ).format(min_Nx, min_sg, min_lc))
 # Plot the critical compressive case Nx internal loads
-ab.plot_section_loads(sc, min_lc, int_load_list=['Nx'],
-                      title_list=['Critical Compressive Nx, LC '+
-                      str(min_lc)], plot_sgs=range(31,40),
-                      figsize=(6.4*0.8, 4.8*0.8))
+ab.plot_section_results(sc, min_lc, result_list=['Nx'],
+                        title_list=['Critical Compressive Nx, LC '+
+                        str(min_lc)], plot_sgs=range(31,40),
+                        figsize=(6.4*0.8, 4.8*0.8))

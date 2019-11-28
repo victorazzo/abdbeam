@@ -32,8 +32,8 @@ sc.summary()
 ab.plot_section(sc, figsize=(6.4*0.8, 4.8*0.8))
 # Create a single load case and calculate its internal loads
 sc.loads[1] = ab.Load(Vz_s=-100)
-sc.calculate_internal_loads()
+sc.calculate_results()
 # Plot internal loads
-ab.plot_section_loads(sc, 1, int_load_list=['Nxy'],
-                      title_list=['Abdbeam - Nxy (N/m)'],
-                      figsize=(6.4*0.8, 4.8*0.8))
+ab.plot_section_results(sc, 1, result_list=['Nxy'],
+                        title_list=['Abdbeam - Nxy (N/m)'],
+                        figsize=(6.4*0.8, 4.8*0.8))

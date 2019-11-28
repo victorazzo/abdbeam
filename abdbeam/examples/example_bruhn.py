@@ -50,7 +50,7 @@ ab.plot_section(sc, centroid =False, princ_dir=False, thickness=False,
                 segment_coord=True, title='Abdbeam - Bruhn Example')
 #Create load case and calculate its internal loads:
 sc.loads[1] = ab.Load(Vz_s=1000)
-sc.calculate_internal_loads()
+sc.calculate_results()
 # Print the shear flows Nxy for all segments
 df = sc.sgs_int_lds_df
 print(df[[('Segment_Id', ''),('Nxy','Avg')]])
