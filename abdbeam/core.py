@@ -6,6 +6,7 @@ Module defining the classes ``Section``, ``Segment``, ``Point`` and ``Load``.
 import numpy as np
 import pandas as pd
 import math
+import warnings
 from .materials import (Material, Isotropic, ShearConnector, PlyMaterial,
                         Laminate)
 
@@ -48,18 +49,18 @@ class Section:
     principal_axis_angle : float
         The angle of the coordinate system Y'-Z' relative to Y-Z in which the
         moment of Inertia Iy'z' is zero. Only applicable to isotropic beams.
-    sc_int_strains_df : pandas.DataFrame
+    sc_results_df : pandas.DataFrame
         The pandas dataframe containing the axial strain, the Y curvature, the
         Z curvature and the rate of twist of the section relative to the
-        centroid (to be implemented).
-    sgs_int_lds_df: pandas.DataFrame
-        A pandas dataframe containing the segments internal loads for all load
-        cases in the loads dictionary. Populated by the
-        calculate_internal_loads method.
-    pts_int_lds_df: pandas.DataFrame
-        A pandas dataframe containing the points internal loads for all load
-        cases in the loads dictionary. Populated by the
-        calculate_internal_loads method.
+        centroid. Populated by the calculate_results method.
+    sgs_results_df: pandas.DataFrame
+        A pandas dataframe containing the segments results (internal loads and
+        /or strains) for all load cases in the loads dictionary. Populated by
+        the calculate_results method.
+    pts_results_df: pandas.DataFrame
+        A pandas dataframe containing the points results (internal loads and/or
+        strains) for all load cases in the loads dictionary. Populated by the
+        calculate_results method.
 
     Methods
     -------
@@ -67,11 +68,12 @@ class Section:
         Prints a summary of the section properties.
     calculate_properties()
         Calculates the section properties.
-    calculate_internal_loads()
-        Calculates internal loads for all load cases in the loads dictionary.
-    print_internal_loads()
-        Prints to the console segment and point internal loads for all load
+    calculate_results()
+        Calculates results (internal loads and/or strains) for selected load
         cases in the loads dictionary.
+    print_results()
+        Prints to the console segment and point internal loads and/or strains
+        for selected load cases in the loads dictionary.
 
     Examples
     --------
@@ -110,8 +112,7 @@ class Section:
         sc.calculate_properties()
         sc.summary()
 
-    Adding two load cases to the section above and printing their internal
-    loads:
+    Adding two load cases to the section above and printing their results:
 
     .. code-block:: python
 
@@ -120,8 +121,8 @@ class Section:
         Lds[102] = ab.Load(Px=1500.0)
         Lds[103] = ab.Load(Vz_s=1000.0)
         sc.loads = Lds
-        sc.calculate_internal_loads()
-        sc.print_internal_loads()
+        sc.calculate_results()
+        sc.print_results()
     """
 
 
@@ -141,21 +142,30 @@ class Section:
         self.w = np.zeros((4, 4))
         self.weight = 0.0
         self.principal_axis_angle = 0.0
-        self.u_Px = None
+        self.u_Px_sg = None
         self.u_Px_pt = None
-        self.u_My = None
+        self.u_Px_sc = None
+        self.u_My_sg = None
         self.u_My_pt = None
-        self.u_Mz = None
+        self.u_My_sc = None
+        self.u_Mz_sg = None
         self.u_Mz_pt = None
-        self.u_Tx = None
+        self.u_Mz_sc = None
+        self.u_Tx_sg = None
         self.u_Tx_pt = None
-        self.u_Vy = None
+        self.u_Tx_sc = None
+        self.u_Vy_sg = None
         self.u_Vy_pt = None
-        self.u_Vz = None
+        self.u_Vy_sc = None
+        self.u_Vz_sg = None
         self.u_Vz_pt = None
-        self.sc_int_strains_df = None
-        self.sgs_int_lds_df = None
-        self.pts_int_lds_df = None
+        self.u_Vz_sc = None
+        self.sc_results_df = None
+        self.sgs_results_df = None
+        self.pts_results_df = None
+        # Backward compatibility:
+        self.sgs_int_lds_df = self.sgs_results_df
+        self.pts_int_lds_df = self.pts_results_df
 
 
     def __repr__(self):
@@ -272,12 +282,12 @@ class Section:
                                     (self.p_c[1,1]-self.p_c[2,2])))
         self.principal_axis_angle = math.degrees(self.principal_axis_angle)
         # Calculate and store the unitary internal loads
-        self.u_Px, self.u_Px_pt = self._calc_unit_internal_loads(0)
-        self.u_My, self.u_My_pt = self._calc_unit_internal_loads(1)
-        self.u_Mz, self.u_Mz_pt = self._calc_unit_internal_loads(2)
-        self.u_Tx, self.u_Tx_pt = self._calc_unit_internal_loads(3)
-        self.u_Vy, self.u_Vy_pt = self._calc_unit_internal_loads(4)
-        self.u_Vz, self.u_Vz_pt = self._calc_unit_internal_loads(5)
+        self.u_Px_sc, self.u_Px_sg, self.u_Px_pt = self._calc_unit_results(0)
+        self.u_My_sc, self.u_My_sg, self.u_My_pt = self._calc_unit_results(1)
+        self.u_Mz_sc, self.u_Mz_sg, self.u_Mz_pt = self._calc_unit_results(2)
+        self.u_Tx_sc, self.u_Tx_sg, self.u_Tx_pt = self._calc_unit_results(3)
+        self.u_Vy_sc, self.u_Vy_sg, self.u_Vy_pt = self._calc_unit_results(4)
+        self.u_Vz_sc, self.u_Vz_sg, self.u_Vz_pt = self._calc_unit_results(5)
 
 
     def _calculate_cell_contributions(self):
@@ -506,7 +516,7 @@ class Section:
                            "other.").format(sg_id, i_sg_id)
 
 
-    def _calc_unit_internal_loads(self, unit_load):
+    def _calc_unit_results(self, unit_load):
         Px_c = 0.0
         My = 0.0
         Mz = 0.0
@@ -532,20 +542,30 @@ class Section:
                                            ['C2','C1','C0']])
         u_sgs = pd.DataFrame(index=list(self.segments.keys()),columns=col)
         # Drop the C2 columns from the known linear results:
-        u_sgs.drop(u_sgs.columns[[0,6,9,12]], axis=1, inplace=True)
+        #u_sgs.drop(u_sgs.columns[[0,6,9,12]], axis=1, inplace=True)
         u_sgs.index.name = 'Segment_Id'
         u_sgs[:] = 0.0
         u_pts = pd.DataFrame(index=list(self.points.keys()),
                             columns=['Px', 'Tx', 'ex', 'v'])
         u_pts.index.name = 'Point_Id'
+        u_sc = pd.DataFrame(columns=['ex_c', 'py_inv_c', 'pz_inv_c', 'v_c',
+                                     'ex', 'py_inv', 'pz_inv', 'v'])
         # Calculate section loads at the section origin
         origin_loads = np.array([Px_c, My + Px_c*self.zc, Mz + Px_c
                                  *self.yc, Tx])
         # Centroid loads
         ct_loads = np.array([Px_c, My, Mz, Tx])
         # Calculate section strains
-        #origin_strains = np.dot(self.w, origin_loads)
-        o_s_c_strs = list(np.dot(self.w_c, ct_loads))
+        origin_strains = np.dot(self.w, origin_loads)
+        centroid_strains = list(np.dot(self.w_c, ct_loads))
+        u_sc.loc[0, 'ex'] = origin_strains[0]
+        u_sc.loc[0, 'py_inv'] = origin_strains[1]
+        u_sc.loc[0, 'pz_inv'] = origin_strains[2]
+        u_sc.loc[0, 'v'] = origin_strains[3]
+        u_sc.loc[0, 'ex_c'] = centroid_strains[0]
+        u_sc.loc[0, 'py_inv_c'] = centroid_strains[1]
+        u_sc.loc[0, 'pz_inv_c'] = centroid_strains[2]
+        u_sc.loc[0, 'v_c'] = centroid_strains[3]
         # Calculate point loads and strains
         #----------------------------------
         shear_const = self.p_c[1,1]*self.p_c[2,2] - self.p_c[1,2]**2
@@ -553,20 +573,24 @@ class Section:
         for p, (pt_id, pt) in enumerate(self.points.items()):
             o_pt_Px = 0.0
             o_pt_Tx = 0.0
+            o_pt_ex = 0.0
+            o_pt_v = 0.0
             if pt.EA > 0:
-                o_pt_Px = (pt.EA*(o_s_c_strs[0] + o_s_c_strs[1]
-                          *(pt.z-self.zc) + o_s_c_strs[2]*(pt.y-self.yc)))
+                o_pt_Px = (pt.EA*(centroid_strains[0] + centroid_strains[1]
+                         *(pt.z-self.zc) + centroid_strains[2]*(pt.y-self.yc)))
                 pt_Nxy_contribution[pt_id] = (-(self.p_c[2,2]*Vz_s
                               - self.p_c[1,2]*Vy_s)*pt.EA*(pt.z-self.zc)
                               - (self.p_c[1,1]*Vy_s - self.p_c[1,2]*Vz_s)
                               * pt.EA*(pt.y-self.yc))
                 pt_Nxy_contribution[pt_id] /= shear_const
-                #o_pt_ex = o_pt_Px/pt.EA * 1000000.0
+                o_pt_ex = 1e6*o_pt_Px/pt.EA
             if pt.GJ > 0:
-                o_pt_Tx  = pt.GJ * o_s_c_strs[3]
-                #o_pt_v = o_pt_Tx / pt.GJ
+                o_pt_Tx  = pt.GJ * centroid_strains[3]
+                o_pt_v = o_pt_Tx / pt.GJ
             u_pts.loc[pt_id, 'Px'] = o_pt_Px
             u_pts.loc[pt_id, 'Tx'] = o_pt_Tx
+            u_pts.loc[pt_id, 'ex'] = o_pt_ex
+            u_pts.loc[pt_id, 'v'] = o_pt_v
         #----------------------------------
         # Calculate the segments loads
         #-----------------------------
@@ -602,8 +626,7 @@ class Section:
                                [0.0, 0.0, 0.0, -2.0]])
                 Nx_Mx_Mxy_recovery = np.dot(
                     np.dot(np.dot(sg.uk_inv,np.dot(rn,sg.rk)),self.w),
-                    origin_loads
-                    )
+                    origin_loads)
                 Nx_k[s,r] = Nx_Mx_Mxy[0] + Nx_Mx_Mxy_recovery[0]
                 Mx_k[s,r] = Nx_Mx_Mxy[1] + Nx_Mx_Mxy_recovery[1]
                 Mxy_k[s,r] = Nx_Mx_Mxy[2] + Nx_Mx_Mxy_recovery[2]
@@ -633,6 +656,7 @@ class Section:
         for s, (sg_id, sg) in enumerate(self.segments.items()):
             a, b, c = _quadratic_poly_coef_from_3_values(
                       x1, x2, x3, Nx_k[s, 0], Nx_k[s, 1], Nx_k[s, 2])
+            u_sgs.loc[sg_id,('Nx','C2')] = a
             u_sgs.loc[sg_id,('Nx','C1')] = b
             u_sgs.loc[sg_id,('Nx','C0')] = c
 
@@ -644,22 +668,25 @@ class Section:
 
             a, b, c = _quadratic_poly_coef_from_3_values(
                       x1, x2, x3, Mx_k[s, 0], Mx_k[s, 1], Mx_k[s, 2])
+            u_sgs.loc[sg_id,('Mx','C2')] = a
             u_sgs.loc[sg_id,('Mx','C1')] = b
             u_sgs.loc[sg_id,('Mx','C0')] = c
 
             a, b, c = _quadratic_poly_coef_from_3_values(
                       x1, x2, x3, My_k[s, 0], My_k[s, 1], My_k[s, 2])
+            u_sgs.loc[sg_id,('My','C2')] = a
             u_sgs.loc[sg_id,('My','C1')] = b
             u_sgs.loc[sg_id,('My','C0')] = c
 
             a, b, c = _quadratic_poly_coef_from_3_values(
                       x1, x2, x3, Mxy_k[s, 0], Mxy_k[s, 1], Mxy_k[s, 2])
+            u_sgs.loc[sg_id,('Mxy','C2')] = a
             u_sgs.loc[sg_id,('Mxy','C1')] = b
             u_sgs.loc[sg_id,('Mxy','C0')] = c
 
             u_sgs = self._calculate_segment_strains(sg_id, u_sgs)
 
-        return u_sgs, u_pts
+        return u_sc, u_sgs, u_pts
 
 
     def _calculate_segment_strains(self, sg_id, u_sgs):
@@ -670,13 +697,20 @@ class Section:
         result_list = ['ex_o', 'ey_o', 'gxy_o', 'kx', 'ky', 'kxy']
         str_vec = {}
         for n in n_list:
-            Nx = u_sgs.loc[sg_id,('Nx','C1')]*n + u_sgs.loc[sg_id,('Nx','C0')]
+            Nx = (u_sgs.loc[sg_id,('Nx','C2')] * n**2 +
+                  u_sgs.loc[sg_id,('Nx','C1')]*n +
+                  u_sgs.loc[sg_id,('Nx','C0')])
             Nxy = (u_sgs.loc[sg_id,('Nxy','C2')] * n**2 +
                    u_sgs.loc[sg_id,('Nxy','C1')]*n +
                    u_sgs.loc[sg_id,('Nxy','C0')])
-            Mx = u_sgs.loc[sg_id,('Mx','C1')]*n + u_sgs.loc[sg_id,('Mx','C0')]
-            My = u_sgs.loc[sg_id,('My','C1')]*n + u_sgs.loc[sg_id,('My','C0')]
-            Mxy = (u_sgs.loc[sg_id,('Mxy','C1')]*n +
+            Mx = (u_sgs.loc[sg_id,('Mx','C2')] * n**2 +
+                  u_sgs.loc[sg_id,('Mx','C1')]*n +
+                  u_sgs.loc[sg_id,('Mx','C0')])
+            My = (u_sgs.loc[sg_id,('My','C2')] * n**2 +
+                  u_sgs.loc[sg_id,('My','C1')]*n +
+                  u_sgs.loc[sg_id,('My','C0')])
+            Mxy = (u_sgs.loc[sg_id,('Mxy','C2')] * n**2 +
+                   u_sgs.loc[sg_id,('Mxy','C1')]*n +
                    u_sgs.loc[sg_id,('Mxy','C0')])
             n_m_vec = np.array([[Nx], [0.0], [Nxy], [Mx], [My], [Mxy]])
             str_vec[n] = 1e6*np.dot(abd_c, n_m_vec)
@@ -691,28 +725,82 @@ class Section:
 
     def calculate_internal_loads(self):
         """
-        Calculates internal loads for all load cases in the loads dictionary.
-
-        Results are loaded into two pandas dataframes: self.sgs_int_lds_df and
-        self.pts_int_lds_df.
-        Segment loads are represented as quadratic equations by outputting the
-        coefficients C2, C1 and C0, where Load = C2*n**2 + C1*n + C0. "n" is
-        the location in the segment length varying from 0.0 (point A) to 1.0
-        (point B). Maximum and minimum segment values and their associated
-        locations (0.0 - 1.0) inside the segment are also provided, along with
-        the segment average and total (integrated) load.
+        Deprecated method. Use calculate_results method instead.
         """
+        self.calculate_results()
+        msg = "".join((
+                "The 'calculate_internal_loads' method is deprecated in favor",
+                " of 'calculate_results'.\n",
+                "Backward compatibility will be droped in package version 2."))
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+
+
+    def calculate_results(self, lc_list=[], nl_results=['Nxy','ex_o','ey_o',
+                          'gxy_o','kx','ky','kxy']):
+        """
+        Calculates results for all load cases in the loads dictionary.
+
+        Results are loaded into three pandas dataframes: self.sc_results_df,
+        self.sgs_results_df and self.pts_results_df.
+        Segment internal loads and strains are represented as quadratic
+        equations by outputting the coefficients C2, C1 and C0, where
+        Result = C2*n**2 + C1*n + C0. "n" is the location in the segment length
+        varying from 0.0 (point A) to 1.0 (point B). Maximum and minimum
+        segment results and their associated locations (0.0 - 1.0) inside the
+        segment are created for strains and internal loads while segment
+        average and total (integrated) results are created for internal loads.
+
+        Attributes
+        ----------
+        lc_list : list, default []
+            A list of section load cases that should be analyzed. An empty
+            list (the default) will use all available load cases.
+        nl_results : list, default ['Nxy','ex_o', 'ey_o', 'gxy_o', 'kx','ky',
+            'kxy']
+            This list is used to reduce the output size if one or more results
+            are known to be linear a priori. Segment internal loads 'Nx','Nxy',
+            'Mx','My','Mxy' and strains 'ex_o', 'ey_o', 'gxy_o', 'kx','ky',
+            'kxy' that are listed will be represented as quadratic equations
+            (having coefficients C2, C1 and C0). An empty list will consider
+            all outputs to be linear (having coefficients C1 and C0 only).
+            Notice that a result that is not in this list will only have its
+            polynomial C2 constant ommited - if the underlying results are
+            actually non-linear, this is not the same as having a linear
+            equation that fits these non-linear results. In this case, C1
+            and C0 will be incorrect as they are actually part of a quadratic
+            equation.
+            If a section has only Px, Px_c, My, Mz and Tx as applied loads,
+            internal loads and strains should be linear regardless of the
+            anisotropy details of each segment. Limitations with the current
+            internal loads and strains formulation occur only when section Vy
+            and Vz (or Vy_s and Vz_s) loads are applied. Such section shear
+            loads will only generate 'Nxy' as non-linear internal loads in the
+            segments, as you would expect of sections made of isotropic or
+            balanced laminates. This means that adding 'Nx', 'Mx', 'My' and
+            'Mxy' to the list is not necessary, as the theory will not create
+            C2 coefficients different than zero for them. Unfortunately,
+            because of this, the compatibility of strains between segments that
+            have unbalanced laminates (with A16 and A26 terms non-zero) will
+            not be achieved and internal loads and strains will become
+            innacurate. Refer to the abdbeam theory for the limiting
+            assumptions when calculating internal loads and strains under shear
+            loads.
+        """
+        i_result = ['Nx','Nxy','Mx','My','Mxy']
         strains = ['ex_o', 'ey_o', 'gxy_o', 'kx','ky', 'kxy']
-        i_load = ['Nx','Nxy','Mx','My','Mxy'] + strains
-        nl_i_loads = ['Nxy'] + strains
+        i_result += strains
+        if not lc_list:
+            lc_list = self.loads.keys()
         r_dict={}
         sg_ids = []
-        load_ids = []
+        sg_load_ids = []
         pt_load_ids = []
+        sc_load_ids = []
         pt_df_lst = []
+        sc_df_lst = []
         #r_dict = {'Segment_Id': [], 'Load_Id': []}
-        for i_l in i_load:
-            if i_l in nl_i_loads:
+        for i_l in i_result:
+            if i_l in nl_results:
                 r_dict[(i_l,'C2')] = []
             r_dict[(i_l,'C1')] = []
             r_dict[(i_l,'C0')] = []
@@ -726,6 +814,8 @@ class Section:
                 r_dict[(i_l,'Avg')] = []
                 r_dict[(i_l,'Total')] = []
         for f_id, f in self.loads.items():
+            if f_id not in lc_list:
+                continue
             # Bring all loads to the centroid and shear center
             Px_c = f.Px_c+f.Px
             My = f.My + f.Px*(f.zp-self.zc)
@@ -734,19 +824,27 @@ class Section:
             Vy_s = f.Vy_s+f.Vy
             Vz_s = f.Vz_s+f.Vz
             # Segments dataframe for the load case
-            f_df = (self.u_Px[:]*Px_c + self.u_My[:]*My + self.u_Mz[:]*Mz
-                     + self.u_Tx[:]*Tx + self.u_Vy[:]*Vy_s + self.u_Vz[:]*Vz_s)
+            f_df = (self.u_Px_sg[:]*Px_c + self.u_My_sg[:]*My + self.u_Mz_sg[:]
+                     * Mz + self.u_Tx_sg[:]*Tx + self.u_Vy_sg[:]*Vy_s
+                     + self.u_Vz_sg[:]*Vz_s)
             # Points dataframe for the load case
             f_p_df = (self.u_Px_pt[:]*Px_c + self.u_My_pt[:]*My
                       + self.u_Mz_pt[:]*Mz + self.u_Tx_pt[:]*Tx
                       + self.u_Vy_pt[:]*Vy_s + self.u_Vz_pt[:]*Vz_s)
             pt_df_lst.append(f_p_df)
             pt_load_ids += len(self.points)*[f_id]
+            # Section dataframe for the load case
+            f_sc_df = (self.u_Px_sc[:]*Px_c + self.u_My_sc[:]*My
+                      + self.u_Mz_sc[:]*Mz + self.u_Tx_sc[:]*Tx
+                      + self.u_Vy_sc[:]*Vy_s + self.u_Vz_sc[:]*Vz_s)
+            sc_df_lst.append(f_sc_df)
+            sc_load_ids.append(f_id)
+            # Fill the segments dataframe
             for sg_id, sg in self.segments.items():
                 sg_ids.append(sg_id)
-                load_ids.append(f_id)
-                for i_l in i_load:
-                    if i_l in nl_i_loads:
+                sg_load_ids.append(f_id)
+                for i_l in i_result:
+                    if i_l in nl_results:
                         a = f_df.loc[sg_id,(i_l,'C2')]
                         r_dict[(i_l,'C2')].append(a)
                     else:
@@ -777,53 +875,84 @@ class Section:
                         avg = total/sg.bk
                         r_dict[(i_l,'Avg')].append(avg)
                         r_dict[(i_l,'Total')].append(total)
-        self.sgs_int_lds_df = pd.DataFrame(r_dict)
-        self.sgs_int_lds_df.insert(0, 'Segment_Id', sg_ids)
-        self.sgs_int_lds_df.insert(1, 'Load_Id', load_ids)
-        self.pts_int_lds_df = pd.concat(pt_df_lst)
-        self.pts_int_lds_df.insert(0, 'Load_Id', pt_load_ids)
-        self.pts_int_lds_df = self.pts_int_lds_df.reset_index()
+        self.sgs_results_df = pd.DataFrame(r_dict)
+        self.sgs_results_df.insert(0, 'Segment_Id', sg_ids)
+        self.sgs_results_df.insert(1, 'Load_Id', sg_load_ids)
+        self.pts_results_df = pd.concat(pt_df_lst)
+        self.pts_results_df.insert(0, 'Load_Id', pt_load_ids)
+        self.pts_results_df = self.pts_results_df.reset_index()
+        self.sc_results_df = pd.concat(sc_df_lst)
+        self.sc_results_df.insert(0, 'Load_Id', sc_load_ids)
+        self.sc_results_df = self.sc_results_df.reset_index(drop=True)
+        # Backward compatibility:
+        self.sgs_int_lds_df = self.sgs_results_df
+        self.pts_int_lds_df = self.pts_results_df
 
 
     def print_internal_loads(self, break_columns=True):
         """
-        Prints to the console segment and point internal loads for all load
-        cases in the loads dictionary.
+        Deprecated method. Use print_result method instead.
+        """
+        self.print_results(break_columns=break_columns)
+        msg = "".join((
+                "The 'print_internal_loads' method is deprecated in favor of",
+                " 'print_results'.\n",
+                "Backward compatibility will be droped in package version 2."))
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+
+
+    def print_results(self, break_columns=True):
+        """
+        Prints to the console section, segment and point results (internal
+        loads and/or strains) for all load cases in the loads dictionary.
 
         Warning
         -------
-        This method outputs a significant amount of data per load
-        case and segment. Depending on your number of segments and load
-        cases, manipulate the data stored in self.sgs_int_lds_df and
-        self.pts_int_lds_df using pandas methods directly.
+        This method outputs a significant amount of data per load case.
+        Depending on your number of segments, points and load cases, manipulate
+        the data stored in self.sc_results_df, self.sgs_results_df and
+        self.pts_results_df using pandas methods directly.
 
         Parameters
         ----------
         break_columns : bool, default True
-            Of the form {int : abdbeam.Material}
+            Defines if result columns are to be
         """
+
         print('')
-        print('Internal Loads for Segments')
-        print('---------------------------')
+        print('Section Results')
+        print('---------------')
         print('')
         if break_columns:
             with pd.option_context('display.max_rows', None,
                                    'display.max_columns', None):
-                print(self.sgs_int_lds_df)
+                print(self.sc_results_df)
         else:
-            print(self.sgs_int_lds_df.to_string())
-        if ((self.pts_int_lds_df['Px'] != 0).any() or
-           (self.pts_int_lds_df['Tx'] != 0).any()):
+            print(self.sc_results_df.to_string())
+        print('')
+        print('Segment Results')
+        print('---------------')
+        print('')
+        if break_columns:
+            with pd.option_context('display.max_rows', None,
+                                   'display.max_columns', None):
+                print(self.sgs_results_df)
+        else:
+            print(self.sgs_results_df.to_string())
+        if ((self.pts_results_df['Px'] != 0).any() or
+            (self.pts_results_df['Tx'] != 0).any() or
+            (self.pts_results_df['ex'] != 0).any() or
+            (self.pts_results_df['v'] != 0).any()):
             print('')
-            print('Internal Loads for Points')
-            print('-------------------------')
+            print('Point Results')
+            print('-------------')
             print('')
             if break_columns:
                 with pd.option_context('display.max_rows', None,
                                        'display.max_columns', None):
-                    print(self.pts_int_lds_df)
+                    print(self.pts_results_df)
             else:
-                print(self.pts_int_lds_df.to_string())
+                print(self.pts_results_df.to_string())
 
 
     def _calculate_shear_contributions(self, pt_Nxy_contribution, dqop, Nxy_k,
