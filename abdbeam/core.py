@@ -699,12 +699,12 @@ class Section:
             Vy_s = f.Vy_s+f.Vy
             Vz_s = f.Vz_s+f.Vz
             # Segments dataframe for the load case
-            f_df = (self.u_Px[:]*Px_c + self.u_My[:]*My + self.u_Mz[:]*Mz
-                     + self.u_Tx[:]*Tx + self.u_Vy[:]*Vy_s + self.u_Vz[:]*Vz_s)
+            f_df = (self.u_Px*Px_c + self.u_My*My + self.u_Mz*Mz
+                     + self.u_Tx*Tx + self.u_Vy*Vy_s + self.u_Vz*Vz_s)
             # Points dataframe for the load case
-            f_p_df = (self.u_Px_pt[:]*Px_c + self.u_My_pt[:]*My
-                      + self.u_Mz_pt[:]*Mz + self.u_Tx_pt[:]*Tx
-                      + self.u_Vy_pt[:]*Vy_s + self.u_Vz_pt[:]*Vz_s)
+            f_p_df = (self.u_Px_pt*Px_c + self.u_My_pt*My
+                      + self.u_Mz_pt*Mz + self.u_Tx_pt*Tx
+                      + self.u_Vy_pt*Vy_s + self.u_Vz_pt*Vz_s)
             pt_df_lst.append(f_p_df)
             pt_load_ids += len(self.points)*[f_id]
             for sg_id, sg in self.segments.items():
