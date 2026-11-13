@@ -530,7 +530,7 @@ class Section:
         col = pd.MultiIndex.from_product([['Nx','Nxy','Mx','My','Mxy'],
                                           ['C2','C1','C0']])
         u_sgs = pd.DataFrame(index=list(self.segments.keys()),columns=col)
-        u_sgs.drop(u_sgs.columns[[0,6,9,12]], axis=1, inplace=True)
+        u_sgs = u_sgs.drop(u_sgs.columns[[0,6,9,12]], axis=1)
         u_sgs.index.name = 'Segment_Id'
         u_sgs[:] = 0.0
         u_pts = pd.DataFrame(index=list(self.points.keys()),
@@ -742,8 +742,12 @@ class Section:
                     r_dict[(i_l,'Avg')].append(avg)
                     r_dict[(i_l,'Total')].append(total)
         self.sgs_int_lds_df = pd.DataFrame(r_dict)
-        self.sgs_int_lds_df.insert(0, 'Segment_Id', sg_ids)
-        self.sgs_int_lds_df.insert(1, 'Load_Id', load_ids)
+        id_df = pd.DataFrame(
+            {('Segment_Id', ''): sg_ids, ('Load_Id', ''): load_ids}
+        )
+        self.sgs_int_lds_df = pd.concat(
+            [id_df, self.sgs_int_lds_df], axis=1
+        )
         self.pts_int_lds_df = pd.concat(pt_df_lst)
         self.pts_int_lds_df.insert(0, 'Load_Id', pt_load_ids)
         self.pts_int_lds_df = self.pts_int_lds_df.reset_index()
